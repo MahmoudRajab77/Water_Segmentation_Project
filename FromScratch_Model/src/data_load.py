@@ -113,8 +113,8 @@ class WaterDataset(Dataset):
 # Test the dataset
 if __name__ == "__main__":
     # Set paths - YOU NEED TO UPDATE THESE!
-    images_dir = "/content/drive/satalite data/data/images"  # Adjust path as needed
-    masks_dir = "/content/drive/satalite data/data/labels"    # Adjust path as needed
+    images_dir = "/content/drive/MyDrive/satalite data/data/images"  # Adjust path as needed
+    masks_dir = "/content/drive/MyDrive/satalite data/data/labels"    # Adjust path as needed
     
     # Create dataset
     print("Creating dataset...")
