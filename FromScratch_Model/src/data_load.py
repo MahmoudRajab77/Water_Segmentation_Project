@@ -61,8 +61,8 @@ class WaterDataset(Dataset):
     #---------------------------------------------------------------------------------
     
     def __len__(self):
-    # Return the total number of samples in the dataset.
-    return len(self.image_files)
+        # Return the total number of samples in the dataset.
+        return len(self.image_files)
 
     #---------------------------------------------------------------------------------
     
