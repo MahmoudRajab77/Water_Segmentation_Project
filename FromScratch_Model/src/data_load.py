@@ -101,9 +101,11 @@ class WaterDataset(Dataset):
         print(f"Mask unique values: {np.unique(mask)}")
         
         # Convert to tensors
-        # PyTorch expects (C, H, W) format
         image_tensor = torch.from_numpy(image).float()
         mask_tensor = torch.from_numpy(mask).long()
+        
+        # Rearrange dimensions from (H, W, C) to (C, H, W) for PyTorch
+        image_tensor = image_tensor.permute(2, 0, 1)  # (12, 128, 128)
         
         return image_tensor, mask_tensor
     
