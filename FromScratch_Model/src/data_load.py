@@ -106,6 +106,9 @@ class WaterDataset(Dataset):
         
         # Rearrange dimensions from (H, W, C) to (C, H, W) for PyTorch
         image_tensor = image_tensor.permute(2, 0, 1)  # (12, 128, 128)
+
+        # Normalize image to [0, 1] range (simple min-max normalization)
+        image_tensor = (image_tensor - image_tensor.min()) / (image_tensor.max() - image_tensor.min() + 1e-8)
         
         return image_tensor, mask_tensor
     
