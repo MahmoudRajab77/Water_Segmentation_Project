@@ -1,0 +1,8 @@
+torch>=1.9.0
+torchvision>=0.10.0
+numpy>=1.19.5
+pillow>=8.3.1
+matplotlib>=3.4.3
+tifffile>=2021.8.30
+scikit-learn>=0.24.2
+tqdm>=4.62.3
