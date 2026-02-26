@@ -180,6 +180,7 @@ class UNet(nn.Module):
 #------------------------------------------------------------------------------------------------
 
 # Test the model
+"""
 if __name__ == "__main__":
     # Create model instance
     model = UNet(n_channels=12, n_classes=1)
@@ -199,5 +200,5 @@ if __name__ == "__main__":
     print(f"\nInput shape: {x.shape}")
     print(f"Output shape: {output.shape}")
 
-
+"""
 
