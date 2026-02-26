@@ -19,9 +19,9 @@ def main():
         'masks_dir': '/content/drive/MyDrive/satalite data/data/labels',
         
         # Training hyperparameters
-        'batch_size': 8,
-        'learning_rate': 0.001,
-        'num_epochs': 50,
+        'batch_size': 16,            # Try 32 later  
+        'learning_rate': 0.0005,     # Try 0.001، 0.0005، 0.0001
+        'num_epochs': 50,            # increase if there is an progress
     }
     
     # Parse command line arguments
@@ -77,3 +77,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
