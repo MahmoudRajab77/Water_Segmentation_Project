@@ -14,9 +14,38 @@ import tifffile
 import torch
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
+from torchvision import transforms
+import random
 
 
 
+
+
+
+class Augmentation:
+    """Data augmentation for training"""
+    
+    @staticmethod
+    def apply(image, mask):
+        # Random horizontal flip
+        if random.random() > 0.5:
+            image = torch.flip(image, dims=[2])  # flip width
+            mask = torch.flip(mask, dims=[1])    # flip width
+        
+        # Random vertical flip
+        if random.random() > 0.5:
+            image = torch.flip(image, dims=[1])  # flip height
+            mask = torch.flip(mask, dims=[0])    # flip height
+        
+        # Random rotation (90, 180, 270 degrees)
+        if random.random() > 0.7:
+            k = random.randint(1, 3)  # 1, 2, or 3 rotations of 90°
+            image = torch.rot90(image, k, dims=[1, 2])
+            mask = torch.rot90(mask, k, dims=[0, 1])
+        
+        return image, mask
+
+#----------------------------------------------------------------------------------------------------------------------------------------
 
 class WaterDataset(Dataset):
     # Custom Dataset for water segmentation using satellite images and masks.
@@ -154,11 +183,14 @@ class WaterDataset(Dataset):
 
         # Normalize image to [0, 1] range (simple min-max normalization)
         image_tensor = (image_tensor - image_tensor.min()) / (image_tensor.max() - image_tensor.min() + 1e-8)
+
+        # Apply augmentation only for training
+        if self.split == 'train':
+            image_tensor, mask_tensor = Augmentation.apply(image_tensor, mask_tensor)
         
         return image_tensor, mask_tensor
     
-    
-    
+#---------------------------------------------------------------------------------------------------------------------------------------    
 
 # Test the dataset
 """
