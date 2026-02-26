@@ -27,6 +27,49 @@ import matplotlib.pyplot as plt    # For plotting training curves later
 
 
 
+
+
+
+"""
+    Combined Dice Loss and Binary Cross Entropy Loss
+    Best for imbalanced segmentation (water pixels usually less than non-water)
+"""
+class DiceBCELoss(nn.Module):
+    
+    def __init__(self, weight=0.5, smooth=1e-6):
+        super(DiceBCELoss, self).__init__()
+        self.weight = weight  # وزن BCE (0.5 = نص ونص)
+        self.smooth = smooth
+        self.bce = nn.BCEWithLogitsLoss()
+    
+    def forward(self, inputs, targets):
+        """
+        inputs: model outputs (logits) shape (B, 1, H, W)
+        targets: ground truth masks shape (B, 1, H, W)
+        """
+        # 1. BCE Loss
+        bce_loss = self.bce(inputs, targets)
+        
+        # 2. Dice Loss
+        inputs_sigmoid = torch.sigmoid(inputs)  # حول logits لـ probabilities
+        
+        # Flatten للتسهيل
+        inputs_flat = inputs_sigmoid.view(-1)
+        targets_flat = targets.view(-1)
+        
+        # Calculate Dice coefficient
+        intersection = (inputs_flat * targets_flat).sum()
+        dice_coef = (2. * intersection + self.smooth) / (inputs_flat.sum() + targets_flat.sum() + self.smooth)
+        dice_loss = 1 - dice_coef
+        
+        # 3. Combined Loss
+        combined_loss = self.weight * bce_loss + (1 - self.weight) * dice_loss
+        
+        return combined_loss
+
+#----------------------------------------------------------------------------------------------------------------------------------------------
+
+
 """
     Purpose: IoU measures overlap between predicted and actual water pixels
 
@@ -41,18 +84,20 @@ import matplotlib.pyplot as plt    # For plotting training curves later
     Range: 0 (no overlap) to 1 (perfect overlap)
 
 """
+
+"""
+    Calculate Intersection over Union for binary segmentation.
+        
+    Args:
+        pred (torch.Tensor): Model predictions (after sigmoid), shape (B, 1, H, W)
+        target (torch.Tensor): Ground truth masks, shape (B, 1, H, W)
+        threshold (float): Threshold to convert probabilities to binary
+        
+    Returns:
+        float: IoU score
+"""
 def calculate_iou(pred, target, threshold=0.5):
-    """
-        Calculate Intersection over Union for binary segmentation.
-        
-        Args:
-            pred (torch.Tensor): Model predictions (after sigmoid), shape (B, 1, H, W)
-            target (torch.Tensor): Ground truth masks, shape (B, 1, H, W)
-            threshold (float): Threshold to convert probabilities to binary
-        
-        Returns:
-            float: IoU score
-    """
+    
     # Convert predictions to binary (0 or 1)
     pred_binary = (pred > threshold).float()
     
@@ -72,6 +117,22 @@ def calculate_iou(pred, target, threshold=0.5):
 
 
 #------------------------------------------------------------------------------------------------
+
+ """
+    Train the model for one epoch.
+        
+    Args:
+        model: U-Net model
+        dataloader: Training data loader
+        criterion: Loss function (BCEWithLogitsLoss)
+        optimizer: Optimizer (Adam)
+        device: Device to train on (cuda/cpu)
+        
+    Returns:
+        float: Average loss for the epoch
+        float: Average IoU for the epoch
+"""
+
 """
     model.train()	: Sets model to training mode (enables dropout, batch norm updates)
     tqdm(dataloader)	: Creates progress bar showing training progress
@@ -87,20 +148,7 @@ def calculate_iou(pred, target, threshold=0.5):
 """
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
-    """
-        Train the model for one epoch.
-        
-        Args:
-            model: U-Net model
-            dataloader: Training data loader
-            criterion: Loss function (BCEWithLogitsLoss)
-            optimizer: Optimizer (Adam)
-            device: Device to train on (cuda/cpu)
-        
-        Returns:
-            float: Average loss for the epoch
-            float: Average IoU for the epoch
-    """
+   
     model.train()  # Set model to training mode
     total_loss = 0
     total_iou = 0
@@ -162,6 +210,23 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
 #----------------------------------------------------------------------------------------------------------------------
 
 """
+    Validate the model on validation set.
+        
+    Args:
+        model: U-Net model
+        dataloader: Validation data loader
+        criterion: Loss function
+        device: Device to validate on
+        
+    Returns:
+        float: Average validation loss
+        float: Average validation IoU
+        float: Precision
+        float: Recall
+        float: F1-score
+"""
+
+"""
     model.eval() : Sets model to evaluation mode (no dropout, uses running stats for batch norm)
     with torch.no_grad() : Disables gradient calculation (saves memory and computation)
     Storing predictions	: Collects all predictions to calculate metrics at the end
@@ -172,22 +237,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
 """
 
 def validate(model, dataloader, criterion, device):
-    """
-        Validate the model on validation set.
-        
-        Args:
-            model: U-Net model
-            dataloader: Validation data loader
-            criterion: Loss function
-            device: Device to validate on
-        
-        Returns:
-            float: Average validation loss
-            float: Average validation IoU
-            float: Precision
-            float: Recall
-            float: F1-score
-    """
+    
     model.eval()  # Set model to evaluation mode
     total_loss = 0
     total_iou = 0
@@ -253,13 +303,15 @@ def validate(model, dataloader, criterion, device):
 
 #--------------------------------------------------------------------------------------
 
-def train_model(config):
-    """
-        Main training function.
+ """
+    Main training function.
         
-        Args:
-            config (dict): Configuration dictionary with training parameters
-    """
+    Args:
+        config (dict): Configuration dictionary with training parameters
+"""
+
+def train_model(config):
+   
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
@@ -313,12 +365,18 @@ def train_model(config):
     print(f"Total parameters: {total_params:,}")
     
     # Loss function and optimizer
-    criterion = nn.BCEWithLogitsLoss()  # Combines sigmoid + binary cross entropy
+    criterion = DiceBCELoss(weight=0.5)  # 0.5 means BCE and Dice are the same important 
     optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
     
-    # Learning rate scheduler (optional)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', factor=0.5, patience=5
+    # OneCycleLR scheduler (best for segmentation)
+    scheduler = optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=config['learning_rate'],  # peak learning rate
+        epochs=config['num_epochs'],
+        steps_per_epoch=len(train_loader),
+        pct_start=0.3,  # 30% of training for warmup
+        div_factor=25,  # initial_lr = max_lr/25
+        final_div_factor=1000  # final_lr = initial_lr/1000
     )
     
     # Training loop
@@ -348,7 +406,7 @@ def train_model(config):
         )
         
         # Update learning rate scheduler
-        scheduler.step(val_loss)
+        scheduler.step()
         
         # Save metrics
         train_losses.append(train_loss)
@@ -388,10 +446,11 @@ def train_model(config):
 
 #------------------------------------------------------------------------------------------------------------
 
-def plot_training_curves(train_losses, val_losses, val_ious):
-    """
-        For Plotting training curves.
-    """
+"""
+    For Plotting training curves.
+"""
+
+def plot_training_curves(train_losses, val_losses, val_ious):  
   
     epochs = range(1, len(train_losses) + 1)
     
