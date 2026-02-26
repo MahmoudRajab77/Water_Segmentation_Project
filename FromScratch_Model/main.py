@@ -73,8 +73,71 @@ def main():
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    
+    # ========== TEST ON TEST SET ==========
+    print("\n" + "="*60)
+    print(" TESTING ON TEST SET")
+    print("="*60)
+    
+    # Load best model
+    checkpoint = torch.load('best_model.pth')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    print(f" Loaded best model from epoch {checkpoint['epoch']+1} with IoU: {checkpoint['val_iou']:.4f}")
+    
+    # Device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = model.to(device)
+    
+    # Create test dataset
+    test_dataset = WaterDataset(
+        images_dir=config['images_dir'],
+        masks_dir=config['masks_dir'],
+        split='test'
+    )
+    
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=config['batch_size'],
+        shuffle=False,
+        num_workers=2,
+        pin_memory=True if device.type == 'cuda' else False
+    )
+    
+    print(f"Test samples: {len(test_dataset)}")
+    print(f"Test batches: {len(test_loader)}")
+    
+    # Loss function
+    criterion = DiceBCELoss(weight=0.5)
+    
+    # Test the model
+    print("\n Evaluating on test set...")
+    test_loss, test_iou, test_precision, test_recall, test_f1 = validate(
+        model, test_loader, criterion, device
+    )
+    
+    # Print final results
+    print("\n" + "="*60)
+    print(" FINAL TEST RESULTS")
+    print("="*60)
+    print(f"Test Loss:       {test_loss:.4f}")
+    print(f"Test IoU:        {test_iou:.4f}")
+    print(f"Test Precision:  {test_precision:.4f}")
+    print(f"Test Recall:     {test_recall:.4f}")
+    print(f"Test F1-Score:   {test_f1:.4f}")
+    print("="*60)
+    
+    # Save results to file
+    with open('test_results.txt', 'w') as f:
+        f.write("FINAL TEST RESULTS\n")
+        f.write("="*40 + "\n")
+        f.write(f"Test Loss: {test_loss:.4f}\n")
+        f.write(f"Test IoU: {test_iou:.4f}\n")
+        f.write(f"Test Precision: {test_precision:.4f}\n")
+        f.write(f"Test Recall: {test_recall:.4f}\n")
+        f.write(f"Test F1-Score: {test_f1:.4f}\n")
+    
+    print("\n Test results saved to 'test_results.txt'")
 
 
 if __name__ == "__main__":
     main()
-
