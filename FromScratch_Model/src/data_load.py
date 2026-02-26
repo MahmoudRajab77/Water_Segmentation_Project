@@ -161,6 +161,7 @@ class WaterDataset(Dataset):
     
 
 # Test the dataset
+"""
 if __name__ == "__main__":
     # Set paths - YOU NEED TO UPDATE THESE!
     images_dir = "/content/drive/MyDrive/satalite data/data/images"  # Adjust path as needed
@@ -208,5 +209,6 @@ if __name__ == "__main__":
     print(f"  Mask shape: {mask.shape}")
     
     print("\n" + "="*50)
-    print("✅ DATA SPLITTING WORKING CORRECTLY!")
+    print(" DATA SPLITTING WORKING CORRECTLY!")
     print("="*50)
+"""
