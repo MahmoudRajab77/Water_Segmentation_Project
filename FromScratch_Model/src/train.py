@@ -107,7 +107,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
     num_batches = 0
     
     # Create progress bar
-    progress_bar = tqdm(dataloader, desc='Training')
+    progress_bar = tqdm(dataloader, desc='Training', leave=False, ncols=80)
     
     for batch_idx, (images, masks) in enumerate(progress_bar):
         # Move data to device
@@ -197,7 +197,7 @@ def validate(model, dataloader, criterion, device):
     
     # No gradient needed for validation
     with torch.no_grad():
-        progress_bar = tqdm(dataloader, desc='Validating')
+        progress_bar = tqdm(dataloader, desc='Validating', leave=False, ncols=80)
         
         for images, masks in progress_bar:
             # Move data to device
@@ -332,8 +332,10 @@ def train_model(config):
     val_ious = []
     
     for epoch in range(config['num_epochs']):
-        print(f"\nEpoch {epoch+1}/{config['num_epochs']}")
-        print("-" * 30)
+        # Header of epoh
+        print(f"\n{'='*60}")
+        print(f"EPOCH {epoch+1:2d}/{config['num_epochs']} 🔥")
+        print(f"{'='*60}")
         
         # Train
         train_loss, train_iou = train_one_epoch(
@@ -353,10 +355,13 @@ def train_model(config):
         val_losses.append(val_loss)
         val_ious.append(val_iou)
         
-        # Print epoch results
-        print(f"\nTrain Loss: {train_loss:.4f}, Train IoU: {train_iou:.4f}")
-        print(f"Val Loss: {val_loss:.4f}, Val IoU: {val_iou:.4f}")
-        print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+        # Print results مرتبة
+        print(f"\n RESULTS")
+        print(f"{'─'*40}")
+        print(f"Train   | Loss: {train_loss:.4f} | IoU: {train_iou:.4f}")
+        print(f"Val     | Loss: {val_loss:.4f} | IoU: {val_iou:.4f}")
+        print(f"{'─'*40}")
+        print(f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}")
         
         # Save best model
         if val_iou > best_val_iou:
@@ -368,7 +373,8 @@ def train_model(config):
                 'val_iou': val_iou,
                 'config': config
             }, 'best_model.pth')
-            print(f"✓ New best model saved! (IoU: {val_iou:.4f})")
+            print(f" Best model saved! (IoU: {val_iou:.4f})")    
+
     
     print("\n" + "="*50)
     print("TRAINING COMPLETE!")
