@@ -221,8 +221,8 @@ def main():
     
     # Load a sample image
     dataset = WaterDataset(
-        images_dir='../data/images',
-        masks_dir='../data/masks',
+        images_dir='/content/drive/MyDrive/satalite data/data/images',
+        masks_dir='/content/drive/MyDrive/satalite data/data/labels',
         split='train'
     )
     
