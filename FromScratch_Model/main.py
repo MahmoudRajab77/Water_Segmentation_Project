@@ -83,7 +83,7 @@ def main():
     print("="*60)
     
     # Load best model
-    checkpoint = torch.load('best_model.pth')
+    checkpoint = torch.load('best_model.pth', weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
     print(f" Loaded best model from epoch {checkpoint['epoch']+1} with IoU: {checkpoint['val_iou']:.4f}")
     
@@ -144,4 +144,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
