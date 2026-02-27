@@ -32,10 +32,15 @@ def main():
         'images_dir': '/content/drive/MyDrive/satalite data/data/images',
         'masks_dir': '/content/drive/MyDrive/satalite data/data/labels',
         
-        # Training hyperparameters
-        'batch_size': 16,            # Try 32 later  
-        'learning_rate': 0.0005,     # Try 0.001، 0.0005، 0.0001
-        'num_epochs': 50,            # increase if there is an progress
+         # Training hyperparameters
+        'batch_size': 16,                    
+        'learning_rate': 0.0003,              
+        'num_epochs': 100,                    
+        'optimizer': 'AdamW',                  
+        'weight_decay': 1e-4,                    
+        'scheduler': 'CosineAnnealingWarmRestarts',  
+        'loss': 'DiceBCE',                               
+        'augmentation': 'Heavy'
     }
     
     # Parse command line arguments
@@ -155,6 +160,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
