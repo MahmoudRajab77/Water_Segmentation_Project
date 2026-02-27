@@ -364,20 +364,43 @@ def train_model(config):
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Total parameters: {total_params:,}")
     
-    # Loss function and optimizer
-    criterion = DiceBCELoss(weight=0.5)  # 0.5 means BCE and Dice are the same important 
-    optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'])
+    # Loss function
+    if config.get('loss', 'BCE') == 'DiceBCE':
+        criterion = DiceBCELoss(weight=0.5)
+    else:
+        criterion = nn.BCEWithLogitsLoss()
     
-    # OneCycleLR scheduler (best for segmentation)
-    scheduler = optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=config['learning_rate'],  # peak learning rate
-        epochs=config['num_epochs'],
-        steps_per_epoch=len(train_loader),
-        pct_start=0.3,  # 30% of training for warmup
-        div_factor=25,  # initial_lr = max_lr/25
-        final_div_factor=1000  # final_lr = initial_lr/1000
-    )
+    # Optimizer
+    if config.get('optimizer', 'Adam') == 'AdamW':
+        optimizer = optim.AdamW(
+            model.parameters(), 
+            lr=config['learning_rate'],
+            weight_decay=config.get('weight_decay', 1e-4)
+        )
+    else:
+        optimizer = optim.Adam(
+            model.parameters(), 
+            lr=config['learning_rate']
+        )
+    
+    # Learning rate scheduler
+    if config.get('scheduler', 'OneCycle') == 'CosineAnnealingWarmRestarts':
+        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=10,  # Restart every 10 epochs
+            T_mult=2,  # Double the restart interval
+            eta_min=1e-6
+        )
+    else:
+        scheduler = optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=config['learning_rate'],
+            epochs=config['num_epochs'],
+            steps_per_epoch=len(train_loader),
+            pct_start=0.3,
+            div_factor=25,
+            final_div_factor=1000
+        )
     
     # Training loop
     print("\n" + "="*50)
@@ -406,7 +429,10 @@ def train_model(config):
         )
         
         # Update learning rate scheduler
-        scheduler.step()
+        if config.get('scheduler', 'OneCycle') == 'CosineAnnealingWarmRestarts':
+            scheduler.step()   
+        else:
+            scheduler.step()  
         
         # Save metrics
         train_losses.append(train_loss)
