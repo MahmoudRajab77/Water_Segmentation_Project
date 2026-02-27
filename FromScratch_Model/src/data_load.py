@@ -168,12 +168,12 @@ class WaterDataset(Dataset):
         mask = Image.open(mask_path)
         mask = np.array(mask)
         
-        # Print shapes to understand what we're working with
+        """# Print shapes to understand what we're working with
         print(f"Image shape: {image.shape}")    
         print(f"Mask shape: {mask.shape}")
         print(f"Image dtype: {image.dtype}, Min: {image.min()}, Max: {image.max()}")
         print(f"Mask unique values: {np.unique(mask)}")
-        
+        """
         # Convert to tensors
         image_tensor = torch.from_numpy(image).float()
         mask_tensor = torch.from_numpy(mask).long()
