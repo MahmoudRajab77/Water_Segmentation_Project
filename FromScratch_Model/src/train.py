@@ -392,7 +392,7 @@ def train_model(config):
     for epoch in range(config['num_epochs']):
         # Header of epoh
         print(f"\n{'='*60}")
-        print(f"EPOCH {epoch+1:2d}/{config['num_epochs']} 🔥")
+        print(f"EPOCH {epoch+1:2d}/{config['num_epochs']} ")
         print(f"{'='*60}")
         
         # Train
