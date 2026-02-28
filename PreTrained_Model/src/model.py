@@ -46,28 +46,29 @@ class DoubleConv(nn.Module):
 class Up(nn.Module):
     
     
-     def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels):
         super(Up, self).__init__()
         
+        # up expects the same number of channels as input from below
         self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels, out_channels)
 
-     #---------------------------------------------------------------
+    #---------------------------------------------------------------
   
-     def forward(self, x1, x2):
-        # x1: coming from bottleneck
+    def forward(self, x1, x2):
+        # x1: from below (bottleneck)
         # x2: skip connection from encoder
         
-        x1 = self.up(x1)  
+        x1 = self.up(x1)  # Now x1 has in_channels//2 channels
         
-        # Pad if needed
+        # Handle padding
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
         
         # Concatenate
-        x = torch.cat([x2, x1], dim=1)  
+        x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 #------------------------------------------------------------------------------------------------------
 
@@ -116,9 +117,9 @@ class PretrainedUNet(nn.Module):
         
         # Decoder with correct channel matching
         self.up1 = Up(512 + 256, 256)  # x5(512) + x4(256)
-        self.up2 = Up(256 + 128, 128)  # + x3(128)
-        self.up3 = Up(128 + 64, 64)    # + x2(64)
-        self.up4 = Up(64 + 64, 64)     # + x1(64)
+        self.up2 = Up(256 + 128, 128)  # output of up1(256) + x3(128)
+        self.up3 = Up(128 + 64, 64)    # output of up2(128) + x2(64)
+        self.up4 = Up(64 + 64, 64)     # output of up3(64) + x1(64)
         
         # Output layer
         self.outc = OutConv(64, n_classes)
