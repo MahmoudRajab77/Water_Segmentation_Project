@@ -41,7 +41,7 @@ def main():
         'scheduler': 'CosineAnnealingWarmRestarts',  
         'loss': 'DiceBCE',                               
         'augmentation': 'Heavy',
-        'selected_bands': [3, 4, 5, 6, 7, 9, 10, 12]
+        'selected_bands': [2, 3, 4, 5, 6, 8, 9, 11]
     }
     
     # Parse command line arguments
@@ -162,6 +162,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
