@@ -74,6 +74,37 @@ class WaterDataset(Dataset):
         # Get all mask files
         all_mask_files = sorted([f for f in os.listdir(masks_dir) 
                                   if f.endswith('.png')])
+
+
+
+
+        # ⬇️⬇️⬇️ الكود الجديد هنا ⬇️⬇️⬇️
+        # تحليل الماسكات اللي فيها underscore
+        masks_with_underscore = [f for f in all_mask_files if '_' in f]
+        print(f"\n📊 تحليل الماسكات اللي فيها underscore:")
+        
+        for mask in masks_with_underscore[:10]:  # أول 10 بس عشان نشوف نمط
+            x, yyy = mask.replace('.png', '').split('_')
+            print(f"   {mask} → الرقم الأول: {x}, الرقم التاني: {yyy}")
+            
+            # نشوف هل الرقمين دول موجودين في الصور؟
+            x_exists = x in image_numbers
+            yyy_exists = yyy in image_numbers
+            print(f"      - الصورة {x}.tif موجودة؟ {x_exists}")
+            print(f"      - الصورة {yyy}.tif موجودة؟ {yyy_exists}")
+        
+        # نشوف التوزيع
+        print(f"\nإجمالي الماسكات بالunderscore: {len(masks_with_underscore)}")
+        # ⬆️⬆️⬆️ الكود الجديد هنا ⬆️⬆️⬆️
+
+
+
+
+
+
+
+
+
         
         print(f"Total images found: {len(all_image_files)}")
         print(f"Total masks found: {len(all_mask_files)}")
