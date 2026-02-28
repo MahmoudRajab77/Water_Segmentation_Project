@@ -1,28 +1,16 @@
-"""--------------------------------------------U-Net with pretrained ResNet34 encoder for water segmentation--------------------------------------------------------------
----------------------------------------------------Adapted from 3-channel (RGB) to multi-spectral input-------------------------------------------------------------------
+"""
+U-Net with pretrained ResNet34 encoder for water segmentation.
+Adapted from 3-channel (RGB) to multi-spectral input.
 """
 
-
-
-
-#------------< Imports >----------
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 
 
-
-
-
-
-
-
-
-
-
-#(Conv3x3 -> BN -> ReLU) x 2
 class DoubleConv(nn.Module):
+    """(Conv3x3 -> BN -> ReLU) x 2"""
     
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
@@ -35,68 +23,56 @@ class DoubleConv(nn.Module):
             nn.ReLU(inplace=True)
         )
 
-    #--------------------------------------------------------------------------
-
     def forward(self, x):
         return self.double_conv(x)
 
-#------------------------------------------------------------------------------------------------
 
-# Upscaling then double conv with skip connection
 class Up(nn.Module):
-    
+    """Upscaling then double conv with skip connection"""
     
     def __init__(self, in_channels, out_channels):
         super(Up, self).__init__()
         
-        # up expects the same number of channels as input from below
+        # up takes the exact number of channels from below
         self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels, out_channels)
 
-    #---------------------------------------------------------------
-  
     def forward(self, x1, x2):
-        # x1: from below (bottleneck)
-        # x2: skip connection from encoder
+        # x1: from below - has in_channels//2 channels
+        # x2: skip connection - has in_channels//2 channels
         
-        x1 = self.up(x1)  # Now x1 has in_channels//2 channels
+        # Upsample
+        x1 = self.up(x1)
         
-        # Handle padding
+        # Handle padding if sizes don't match
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
         
-        # Concatenate
+        # Concatenate along channels
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
-#------------------------------------------------------------------------------------------------------
 
-# Final 1x1 convolution
+
 class OutConv(nn.Module):
+    """Final 1x1 convolution"""
     
     def __init__(self, in_channels, out_channels):
         super(OutConv, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-    #-------------------------------------------------------------------
+    
     def forward(self, x):
         return self.conv(x)
 
-#-------------------------------------------------------------------------------------------------------
 
-"""
-    U-Net with ResNet34 encoder pretrained on ImageNet.
-    First convolution layer adapted to handle arbitrary number of input channels.
-"""
 class PretrainedUNet(nn.Module):
     """
-        Args:
-            n_channels: Number of input channels (default 12 for multispectral)
-            n_classes: Number of output classes (1 for binary segmentation)
+    U-Net with ResNet34 encoder pretrained on ImageNet.
+    First convolution layer adapted to handle arbitrary number of input channels.
     """
     
     def __init__(self, n_channels=12, n_classes=1):
-        
         super(PretrainedUNet, self).__init__()
         
         # Load pretrained ResNet34
@@ -117,9 +93,9 @@ class PretrainedUNet(nn.Module):
         
         # Decoder with correct channel matching
         self.up1 = Up(512 + 256, 256)  # x5(512) + x4(256)
-        self.up2 = Up(256 + 128, 128)  # output of up1(256) + x3(128)
-        self.up3 = Up(128 + 64, 64)    # output of up2(128) + x2(64)
-        self.up4 = Up(64 + 64, 64)     # output of up3(64) + x1(64)
+        self.up2 = Up(256 + 128, 128)  # up1 output(256) + x3(128)
+        self.up3 = Up(128 + 64, 64)    # up2 output(128) + x2(64)
+        self.up4 = Up(64 + 64, 64)     # up3 output(64) + x1(64)
         
         # Output layer
         self.outc = OutConv(64, n_classes)
@@ -128,14 +104,11 @@ class PretrainedUNet(nn.Module):
         self.register_buffer('mean', torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
         self.register_buffer('std', torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
 
-    #-------------------------------------------------------------------------------------
-  
-    """
+    def _adapt_first_conv(self, original_conv, new_in_channels):
+        """
         Adapt first convolution layer from 3 channels to new_in_channels.
         Uses averaging strategy: average RGB weights and repeat.
-    """
-    def _adapt_first_conv(self, original_conv, new_in_channels):
-      
+        """
         # Create new conv layer
         new_conv = nn.Conv2d(
             new_in_channels,
@@ -156,18 +129,15 @@ class PretrainedUNet(nn.Module):
                 new_conv.bias.copy_(original_conv.bias)
         
         return new_conv
-   
-    #--------------------------------------------------------------------------------------------------------------
-    
-    """
+
+    def forward(self, x):
+        """
         Forward pass.
         Args:
             x: Input tensor of shape (batch, n_channels, H, W)
         Returns:
             Output tensor of shape (batch, n_classes, H, W)
-    """
-    def forward(self, x):
-        
+        """
         # Split bands: first 3 for normalization, rest are kept as is
         x_rgb = x[:, :3, :, :]  # First 3 bands (for normalization)
         x_rest = x[:, 3:, :, :]  # Remaining bands
@@ -182,20 +152,20 @@ class PretrainedUNet(nn.Module):
         x = self.inc(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x1 = x  # Skip connection 1 (after first conv + bn + relu)
+        x1 = x  # Skip connection 1 (after first conv + bn + relu) - 64 channels
         
         x = self.maxpool(x)
-        x2 = self.enc1(x)  # Skip connection 2
+        x2 = self.enc1(x)  # Skip connection 2 - 64 channels
         
-        x3 = self.enc2(x2)  # Skip connection 3
-        x4 = self.enc3(x3)  # Skip connection 4
-        x5 = self.enc4(x4)  # Bottleneck
+        x3 = self.enc2(x2)  # Skip connection 3 - 128 channels
+        x4 = self.enc3(x3)  # Skip connection 4 - 256 channels
+        x5 = self.enc4(x4)  # Bottleneck - 512 channels
         
         # Decoder with skip connections
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
+        x = self.up1(x5, x4)  # 512 + 256 = 768 -> 256
+        x = self.up2(x, x3)   # 256 + 128 = 384 -> 128
+        x = self.up3(x, x2)   # 128 + 64 = 192 -> 64
+        x = self.up4(x, x1)   # 64 + 64 = 128 -> 64
         
         # Output
         logits = self.outc(x)
@@ -203,11 +173,6 @@ class PretrainedUNet(nn.Module):
         return logits
 
 
-
-
-
-
-"""
 # Quick test
 if __name__ == "__main__":
     model = PretrainedUNet(n_channels=8, n_classes=1)
@@ -217,5 +182,3 @@ if __name__ == "__main__":
     y = model(x)
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {y.shape}")
-"""
-    
