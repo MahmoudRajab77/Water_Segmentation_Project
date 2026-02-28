@@ -52,9 +52,9 @@ class Up(nn.Module):
         self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels, out_channels)
 
-    #---------------------------------------------------------------
+     #---------------------------------------------------------------
   
-    def forward(self, x1, x2):
+     def forward(self, x1, x2):
         # x1: coming from bottleneck
         # x2: skip connection from encoder
         
