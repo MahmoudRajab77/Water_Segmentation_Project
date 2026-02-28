@@ -75,36 +75,6 @@ class WaterDataset(Dataset):
         all_mask_files = sorted([f for f in os.listdir(masks_dir) 
                                   if f.endswith('.png')])
 
-
-
-
-        # ⬇️⬇️⬇️ الكود الجديد هنا ⬇️⬇️⬇️
-        # تحليل الماسكات اللي فيها underscore
-        masks_with_underscore = [f for f in all_mask_files if '_' in f]
-        print(f"\n📊 تحليل الماسكات اللي فيها underscore:")
-        
-        for mask in masks_with_underscore[:10]:  # أول 10 بس عشان نشوف نمط
-            x, yyy = mask.replace('.png', '').split('_')
-            print(f"   {mask} → الرقم الأول: {x}, الرقم التاني: {yyy}")
-            
-            # نشوف هل الرقمين دول موجودين في الصور؟
-            x_exists = x in image_numbers
-            yyy_exists = yyy in image_numbers
-            print(f"      - الصورة {x}.tif موجودة؟ {x_exists}")
-            print(f"      - الصورة {yyy}.tif موجودة؟ {yyy_exists}")
-        
-        # نشوف التوزيع
-        print(f"\nإجمالي الماسكات بالunderscore: {len(masks_with_underscore)}")
-        # ⬆️⬆️⬆️ الكود الجديد هنا ⬆️⬆️⬆️
-
-
-
-
-
-
-
-
-
         
         print(f"Total images found: {len(all_image_files)}")
         print(f"Total masks found: {len(all_mask_files)}")
@@ -220,6 +190,50 @@ class WaterDataset(Dataset):
             image_tensor, mask_tensor = Augmentation.apply(image_tensor, mask_tensor)
         
         return image_tensor, mask_tensor
+
+    #-------------------------------------------------------------------------------------------------------------------
+    
+    """Simple water estimation using NIR band (index 4)"""
+
+    def _estimate_water_from_nir(self, image_tensor):
+        nir_band = image_tensor[4]  # (H, W)
+        threshold = nir_band.mean() * 0.8
+        return (nir_band < threshold).float()
+    
+    def _calculate_iou(self, pred, target):
+        pred_flat = pred.view(-1).cpu().numpy()
+        target_flat = target.view(-1).cpu().numpy()
+        inter = np.logical_and(pred_flat, target_flat).sum()
+        union = np.logical_or(pred_flat, target_flat).sum()
+        return inter / union if union > 0 else 1.0
+    
+    def _find_best_image_for_mask(self, img1_path, img2_path, mask_path):
+        """Return which image (1 or 2) the mask belongs to"""
+        
+        # Load mask
+        mask = Image.open(mask_path)
+        mask = np.array(mask)
+        mask_tensor = torch.from_numpy(mask).float()
+        
+        # Load images
+        img1 = tifffile.imread(img1_path)
+        img2 = tifffile.imread(img2_path)
+        
+        # Convert to tensors
+        img1_tensor = torch.from_numpy(img1).float().permute(2, 0, 1)
+        img2_tensor = torch.from_numpy(img2).float().permute(2, 0, 1)
+        
+        # Estimate water
+        pred1 = self._estimate_water_from_nir(img1_tensor)
+        pred2 = self._estimate_water_from_nir(img2_tensor)
+        
+        # Calculate IoU
+        iou1 = self._calculate_iou(pred1, mask_tensor)
+        iou2 = self._calculate_iou(pred2, mask_tensor)
+        
+        return 1 if iou1 > iou2 else 2
+
+
     
 #---------------------------------------------------------------------------------------------------------------------------------------    
 
