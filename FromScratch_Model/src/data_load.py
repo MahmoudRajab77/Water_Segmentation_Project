@@ -92,7 +92,7 @@ class WaterDataset(Dataset):
 
     #-----------------------------------------------------------------------------------------------------------------------------
     
-    def __init__(self, images_dir, masks_dir, split='train', train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=42):
+    def __init__(self, images_dir, masks_dir, split='train', train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=42, selected_bands=None):
         """
         Args:
             images_dir (str): Path to directory with .tif satellite images
@@ -102,12 +102,16 @@ class WaterDataset(Dataset):
             val_ratio (float): Proportion of data for validation
             test_ratio (float): Proportion of data for testing
             random_seed (int): Random seed for reproducibility
+            selected_bands (list): List of band indices to use (0-based). 
+                               If None, use all 12 bands.
         """
 
         
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         self.split = split
+        self.selected_bands = selected_bands
+
         
         # Get all image files
         all_image_files = sorted([f for f in os.listdir(images_dir) 
@@ -251,12 +255,6 @@ class WaterDataset(Dataset):
         mask = Image.open(mask_path)
         mask = np.array(mask)
         
-        """# Print shapes to understand what we're working with
-        print(f"Image shape: {image.shape}")    
-        print(f"Mask shape: {mask.shape}")
-        print(f"Image dtype: {image.dtype}, Min: {image.min()}, Max: {image.max()}")
-        print(f"Mask unique values: {np.unique(mask)}")
-        """
         # Convert to tensors
         image_tensor = torch.from_numpy(image).float()
         mask_tensor = torch.from_numpy(mask).long()
@@ -266,6 +264,10 @@ class WaterDataset(Dataset):
 
         # Normalize image to [0, 1] range (simple min-max normalization)
         image_tensor = (image_tensor - image_tensor.min()) / (image_tensor.max() - image_tensor.min() + 1e-8)
+
+        # Choosing selected bands 
+        if self.selected_bands is not None:
+            image_tensor = image_tensor[self.selected_bands, :, :]
 
         # Apply augmentation only for training
         if self.split == 'train':
