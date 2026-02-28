@@ -30,27 +30,25 @@ class DoubleConv(nn.Module):
 class Up(nn.Module):
     """Upscaling then double conv with skip connection"""
     
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, skip_channels, bottleneck_channels, out_channels):
         super(Up, self).__init__()
         
-        # up takes the exact number of channels from below
-        self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
-        self.conv = DoubleConv(in_channels, out_channels)
+        self.up = nn.ConvTranspose2d(bottleneck_channels, bottleneck_channels, kernel_size=2, stride=2)
+        self.conv = DoubleConv(skip_channels + bottleneck_channels, out_channels)
 
     def forward(self, x1, x2):
-        # x1: from below - has in_channels//2 channels
-        # x2: skip connection - has in_channels//2 channels
+        # x1: from below (bottleneck)
+        # x2: skip connection from encoder
         
-        # Upsample
         x1 = self.up(x1)
         
-        # Handle padding if sizes don't match
+        # Handle padding
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
                         diffY // 2, diffY - diffY // 2])
         
-        # Concatenate along channels
+        # Concatenate
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
 
@@ -85,17 +83,17 @@ class PretrainedUNet(nn.Module):
         self.relu = resnet.relu
         self.maxpool = resnet.maxpool
         
-        # Encoder blocks
+        # Encoder blocks with their output channels
         self.enc1 = resnet.layer1  # 64 channels
         self.enc2 = resnet.layer2  # 128 channels
         self.enc3 = resnet.layer3  # 256 channels
         self.enc4 = resnet.layer4  # 512 channels
         
-        # Decoder with correct channel matching
-        self.up1 = Up(512 + 256, 256)  # x5(512) + x4(256)
-        self.up2 = Up(256 + 128, 128)  # up1 output(256) + x3(128)
-        self.up3 = Up(128 + 64, 64)    # up2 output(128) + x2(64)
-        self.up4 = Up(64 + 64, 64)     # up3 output(64) + x1(64)
+        # Decoder with explicit channel dimensions
+        self.up1 = Up(skip_channels=256, bottleneck_channels=512, out_channels=256)
+        self.up2 = Up(skip_channels=128, bottleneck_channels=256, out_channels=128)
+        self.up3 = Up(skip_channels=64, bottleneck_channels=128, out_channels=64)
+        self.up4 = Up(skip_channels=64, bottleneck_channels=64, out_channels=64)
         
         # Output layer
         self.outc = OutConv(64, n_classes)
@@ -121,8 +119,8 @@ class PretrainedUNet(nn.Module):
         
         # Average over RGB channels (dim=1)
         with torch.no_grad():
-            rgb_weight = original_conv.weight.mean(dim=1, keepdim=True)  # (out_channels, 1, k, k)
-            new_weight = rgb_weight.repeat(1, new_in_channels, 1, 1) / 3  # (out_channels, new_in_channels, k, k)
+            rgb_weight = original_conv.weight.mean(dim=1, keepdim=True)
+            new_weight = rgb_weight.repeat(1, new_in_channels, 1, 1) / 3
             new_conv.weight.copy_(new_weight)
             
             if original_conv.bias is not None:
@@ -139,8 +137,8 @@ class PretrainedUNet(nn.Module):
             Output tensor of shape (batch, n_classes, H, W)
         """
         # Split bands: first 3 for normalization, rest are kept as is
-        x_rgb = x[:, :3, :, :]  # First 3 bands (for normalization)
-        x_rest = x[:, 3:, :, :]  # Remaining bands
+        x_rgb = x[:, :3, :, :]
+        x_rest = x[:, 3:, :, :]
         
         # Normalize RGB part with ImageNet stats
         x_rgb = (x_rgb - self.mean) / self.std
@@ -152,20 +150,20 @@ class PretrainedUNet(nn.Module):
         x = self.inc(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x1 = x  # Skip connection 1 (after first conv + bn + relu) - 64 channels
+        skip1 = x  # 64 channels
         
         x = self.maxpool(x)
-        x2 = self.enc1(x)  # Skip connection 2 - 64 channels
+        skip2 = self.enc1(x)  # 64 channels
         
-        x3 = self.enc2(x2)  # Skip connection 3 - 128 channels
-        x4 = self.enc3(x3)  # Skip connection 4 - 256 channels
-        x5 = self.enc4(x4)  # Bottleneck - 512 channels
+        skip3 = self.enc2(skip2)  # 128 channels
+        skip4 = self.enc3(skip3)  # 256 channels
+        bottleneck = self.enc4(skip4)  # 512 channels
         
-        # Decoder with skip connections
-        x = self.up1(x5, x4)  # 512 + 256 = 768 -> 256
-        x = self.up2(x, x3)   # 256 + 128 = 384 -> 128
-        x = self.up3(x, x2)   # 128 + 64 = 192 -> 64
-        x = self.up4(x, x1)   # 64 + 64 = 128 -> 64
+        # Decoder
+        x = self.up1(bottleneck, skip4)  # 512 + 256 -> 256
+        x = self.up2(x, skip3)           # 256 + 128 -> 128
+        x = self.up3(x, skip2)           # 128 + 64 -> 64
+        x = self.up4(x, skip1)           # 64 + 64 -> 64
         
         # Output
         logits = self.outc(x)
@@ -173,8 +171,8 @@ class PretrainedUNet(nn.Module):
         return logits
 
 
-# Quick test
 if __name__ == "__main__":
+    # Quick test
     model = PretrainedUNet(n_channels=8, n_classes=1)
     print(f"Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
     
