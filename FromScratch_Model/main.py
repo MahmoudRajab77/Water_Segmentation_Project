@@ -40,7 +40,7 @@ def main():
         'weight_decay': 1e-4,                    
         'scheduler': 'CosineAnnealingWarmRestarts',  
         'loss': 'DiceBCE',                               
-        'augmentation': 'Heavy'
+        'augmentation': 'Heavy',
         'selected_bands': [3, 4, 5, 6, 7, 9, 10, 12]
     }
     
@@ -162,6 +162,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
