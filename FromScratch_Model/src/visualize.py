@@ -13,72 +13,6 @@ from data_load import WaterDataset
 
 
 
-def analyze_data_pattern(images_dir, masks_dir):
-    """تحليل نمط البيانات والماسكات"""
-    
-    import os
-    from data_load import WaterDataset  # عشان نستخدم نفس الدوال
-    
-    print("="*60)
-    print("🔍 تحليل نمط البيانات")
-    print("="*60)
-    
-    # الصور
-    image_files = sorted([f for f in os.listdir(images_dir) if f.endswith('.tif')])
-    image_numbers = [f.replace('.tif', '') for f in image_files]
-    
-    # الماسكات
-    mask_files = sorted([f for f in os.listdir(masks_dir) if f.endswith('.png')])
-    
-    # تصنيف الماسكات
-    normal_masks = [f for f in mask_files if '_' not in f]
-    underscore_masks = [f for f in mask_files if '_' in f]
-    
-    print(f"\n📊 إحصائيات:")
-    print(f"   - عدد الصور: {len(image_files)}")
-    print(f"   - عدد الماسكات الكلي: {len(mask_files)}")
-    print(f"   - ماسكات عادية: {len(normal_masks)}")
-    print(f"   - ماسكات ب underscore: {len(underscore_masks)}")
-    
-    # تحليل الماسكات ب underscore
-    print(f"\n🔎 تحليل الماسكات ب underscore (أول 15):")
-    print(f"{'الاسم':20} {'الرقم الأول':12} {'الرقم التاني':12} {'الأول موجود؟':12} {'التاني موجود؟':12}")
-    print("-"*70)
-    
-    for mask in underscore_masks[:15]:
-        name = mask.replace('.png', '')
-        parts = name.split('_')
-        if len(parts) == 2:
-            first, second = parts
-            first_exists = first in image_numbers
-            second_exists = second in image_numbers
-            print(f"{mask:20} {first:12} {second:12} {str(first_exists):12} {str(second_exists):12}")
-    
-    # تحليل الأرقام الفريدة
-    first_nums = set(m.split('_')[0] for m in underscore_masks if '_' in m)
-    second_nums = set(m.replace('.png', '').split('_')[1] for m in underscore_masks if '_' in m)
-    
-    print(f"\n📈 تحليل الأرقام:")
-    print(f"   - أرقام أولى فريدة: {len(first_nums)} (مثال: {list(first_nums)[:5]})")
-    print(f"   - أرقام تانية فريدة: {len(second_nums)} (مثال: {list(second_nums)[:5]})")
-    
-    # هل الأرقام التانية موجودة في الصور؟
-    second_in_images = [n for n in second_nums if n in image_numbers]
-    print(f"   - الأرقام التانية الموجودة في الصور: {len(second_in_images)}/{len(second_nums)}")
-    
-    return {
-        'total_images': len(image_files),
-        'total_masks': len(mask_files),
-        'normal_masks': len(normal_masks),
-        'underscore_masks': len(underscore_masks),
-        'first_numbers': first_nums,
-        'second_numbers': second_nums
-    }
-
-
-
-
-
 
 
 
@@ -342,5 +276,4 @@ def main():
 
 
 if __name__ == "__main__":
-    stats = analyze_data_pattern('/content/drive/MyDrive/satalite data/data/images', '/content/drive/MyDrive/satalite data/data/labels')
-    #main()
+    main()
