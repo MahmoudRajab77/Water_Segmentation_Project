@@ -129,13 +129,6 @@ class PretrainedUNet(nn.Module):
         return new_conv
 
     def forward(self, x):
-        """
-        Forward pass.
-        Args:
-            x: Input tensor of shape (batch, n_channels, H, W)
-        Returns:
-            Output tensor of shape (batch, n_classes, H, W)
-        """
         # Split bands: first 3 for normalization, rest are kept as is
         x_rgb = x[:, :3, :, :]
         x_rest = x[:, 3:, :, :]
@@ -150,20 +143,23 @@ class PretrainedUNet(nn.Module):
         x = self.inc(x)
         x = self.bn1(x)
         x = self.relu(x)
-        skip1 = x  # 64 channels
+        skip1 = x  # 64 channels, 64x64
         
         x = self.maxpool(x)
-        skip2 = self.enc1(x)  # 64 channels
+        skip2 = self.enc1(x)  # 64 channels, 32x32
         
-        skip3 = self.enc2(skip2)  # 128 channels
-        skip4 = self.enc3(skip3)  # 256 channels
-        bottleneck = self.enc4(skip4)  # 512 channels
+        skip3 = self.enc2(skip2)  # 128 channels, 16x16
+        skip4 = self.enc3(skip3)  # 256 channels, 8x8
+        bottleneck = self.enc4(skip4)  # 512 channels, 4x4
         
         # Decoder
-        x = self.up1(bottleneck, skip4)  # 512 + 256 -> 256
-        x = self.up2(x, skip3)           # 256 + 128 -> 128
-        x = self.up3(x, skip2)           # 128 + 64 -> 64
-        x = self.up4(x, skip1)           # 64 + 64 -> 64
+        x = self.up1(bottleneck, skip4)  # 512 + 256 -> 256, 8x8
+        x = self.up2(x, skip3)           # 256 + 128 -> 128, 16x16
+        x = self.up3(x, skip2)           # 128 + 64 -> 64, 32x32
+        x = self.up4(x, skip1)           # 64 + 64 -> 64, 64x64
+        
+        # Upsample to original size (128x128)
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
         
         # Output
         logits = self.outc(x)
