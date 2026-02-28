@@ -41,6 +41,7 @@ def main():
         'scheduler': 'CosineAnnealingWarmRestarts',  
         'loss': 'DiceBCE',                               
         'augmentation': 'Heavy'
+        'selected_bands': [3, 4, 5, 6, 7, 9, 10, 12]
     }
     
     # Parse command line arguments
@@ -111,7 +112,8 @@ def main():
     test_dataset = WaterDataset(
         images_dir=config['images_dir'],
         masks_dir=config['masks_dir'],
-        split='test'
+        split='test', 
+        selected_bands=config['selected_bands']
     )
     
     test_loader = DataLoader(
@@ -160,6 +162,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
