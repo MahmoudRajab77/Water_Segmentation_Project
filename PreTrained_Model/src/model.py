@@ -49,7 +49,7 @@ class Up(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(Up, self).__init__()
         
-        self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+        self.up = nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=2, stride=2)
         self.conv = DoubleConv(in_channels, out_channels)
 
     #---------------------------------------------------------------
@@ -57,7 +57,6 @@ class Up(nn.Module):
     def forward(self, x1, x2):
         x1 = self.up(x1)
         
-        # Handle spatial size mismatch
         diffY = x2.size()[2] - x1.size()[2]
         diffX = x2.size()[3] - x1.size()[3]
         x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
@@ -65,7 +64,6 @@ class Up(nn.Module):
         
         x = torch.cat([x2, x1], dim=1)
         return self.conv(x)
-
 #------------------------------------------------------------------------------------------------------
 
 # Final 1x1 convolution
@@ -111,11 +109,11 @@ class PretrainedUNet(nn.Module):
         self.enc3 = resnet.layer3  # 256 channels
         self.enc4 = resnet.layer4  # 512 channels
         
-        # Decoder
-        self.up1 = Up(512, 256)
-        self.up2 = Up(256, 128)
-        self.up3 = Up(128, 64)
-        self.up4 = Up(64, 64)
+        # Decoder with correct channel matching
+        self.up1 = Up(512 + 256, 256)  # x5(512) + x4(256)
+        self.up2 = Up(256 + 128, 128)  # + x3(128)
+        self.up3 = Up(128 + 64, 64)    # + x2(64)
+        self.up4 = Up(64 + 64, 64)     # + x1(64)
         
         # Output layer
         self.outc = OutConv(64, n_classes)
