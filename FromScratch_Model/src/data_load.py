@@ -50,6 +50,48 @@ class Augmentation:
 class WaterDataset(Dataset):
     # Custom Dataset for water segmentation using satellite images and masks.
     
+    """Simple water estimation using NIR band (index 4)"""
+
+    def _estimate_water_from_nir(self, image_tensor):
+        nir_band = image_tensor[4]  # (H, W)
+        threshold = nir_band.mean() * 0.8
+        return (nir_band < threshold).float()
+    
+    def _calculate_iou(self, pred, target):
+        pred_flat = pred.view(-1).cpu().numpy()
+        target_flat = target.view(-1).cpu().numpy()
+        inter = np.logical_and(pred_flat, target_flat).sum()
+        union = np.logical_or(pred_flat, target_flat).sum()
+        return inter / union if union > 0 else 1.0
+    
+    def _find_best_image_for_mask(self, img1_path, img2_path, mask_path):
+        """Return which image (1 or 2) the mask belongs to"""
+        
+        # Load mask
+        mask = Image.open(mask_path)
+        mask = np.array(mask)
+        mask_tensor = torch.from_numpy(mask).float()
+        
+        # Load images
+        img1 = tifffile.imread(img1_path)
+        img2 = tifffile.imread(img2_path)
+        
+        # Convert to tensors
+        img1_tensor = torch.from_numpy(img1).float().permute(2, 0, 1)
+        img2_tensor = torch.from_numpy(img2).float().permute(2, 0, 1)
+        
+        # Estimate water
+        pred1 = self._estimate_water_from_nir(img1_tensor)
+        pred2 = self._estimate_water_from_nir(img2_tensor)
+        
+        # Calculate IoU
+        iou1 = self._calculate_iou(pred1, mask_tensor)
+        iou2 = self._calculate_iou(pred2, mask_tensor)
+        
+        return 1 if iou1 > iou2 else 2
+
+    #-----------------------------------------------------------------------------------------------------------------------------
+    
     def __init__(self, images_dir, masks_dir, split='train', train_ratio=0.7, val_ratio=0.15, test_ratio=0.15, random_seed=42):
         """
         Args:
@@ -79,21 +121,61 @@ class WaterDataset(Dataset):
         print(f"Total images found: {len(all_image_files)}")
         print(f"Total masks found: {len(all_mask_files)}")
         
-        # Find which images have matching masks
+        image_numbers = [f.replace('.tif', '') for f in all_image_files]
+        paired_dict = {}  # to collect all masks related to the image 
+        
+        # First, collect all normal masks (no underscore)
+        for mask_file in all_mask_files:
+            if '_' not in mask_file:
+                img_num = mask_file.replace('.png', '')
+                if img_num in image_numbers:
+                    if img_num not in paired_dict:
+                        paired_dict[img_num] = []
+                    paired_dict[img_num].append(mask_file)
+        
+        print(f"Normal masks paired: {sum(len(v) for v in paired_dict.values())}")
+        
+        # Then handle underscore masks
+        underscore_masks = [f for f in all_mask_files if '_' in f]
+        
+        for mask_file in underscore_masks:
+            parts = mask_file.replace('.png', '').split('_')
+            if len(parts) != 2:
+                continue
+            
+            first, second = parts[0], parts[1]
+            
+            # Skip if either image is missing
+            if first not in image_numbers or second not in image_numbers:
+                continue
+            
+            img1_path = os.path.join(images_dir, f"{first}.tif")
+            img2_path = os.path.join(images_dir, f"{second}.tif")
+            mask_path = os.path.join(masks_dir, mask_file)
+            
+            best = self._find_best_image_for_mask(img1_path, img2_path, mask_path)
+            
+            if best == 1:
+                img_num = first
+            else:
+                img_num = second
+            
+            if img_num not in paired_dict:
+                paired_dict[img_num] = []
+            paired_dict[img_num].append(mask_file)
+        
+        # Build final lists
         paired_images = []
         paired_masks = []
         
-        for img_file in all_image_files:
-            expected_mask = img_file.replace('.tif', '.png')
-            if expected_mask in all_mask_files:
+        for img_num, mask_list in paired_dict.items():
+            img_file = f"{img_num}.tif"
+            for mask_file in mask_list:
                 paired_images.append(img_file)
-                paired_masks.append(expected_mask)
+                paired_masks.append(mask_file)
         
-        print(f"Paired images with masks: {len(paired_images)}")
-        
-        if len(paired_images) == 0:
-            raise RuntimeError("No matching image-mask pairs found!")
-        
+        print(f"Total paired images after underscore processing: {len(paired_images)}")
+                
         # Create train/val/test splits
         # First split: train and temp (val+test)
         train_files, temp_files = train_test_split(
@@ -190,49 +272,6 @@ class WaterDataset(Dataset):
             image_tensor, mask_tensor = Augmentation.apply(image_tensor, mask_tensor)
         
         return image_tensor, mask_tensor
-
-    #-------------------------------------------------------------------------------------------------------------------
-    
-    """Simple water estimation using NIR band (index 4)"""
-
-    def _estimate_water_from_nir(self, image_tensor):
-        nir_band = image_tensor[4]  # (H, W)
-        threshold = nir_band.mean() * 0.8
-        return (nir_band < threshold).float()
-    
-    def _calculate_iou(self, pred, target):
-        pred_flat = pred.view(-1).cpu().numpy()
-        target_flat = target.view(-1).cpu().numpy()
-        inter = np.logical_and(pred_flat, target_flat).sum()
-        union = np.logical_or(pred_flat, target_flat).sum()
-        return inter / union if union > 0 else 1.0
-    
-    def _find_best_image_for_mask(self, img1_path, img2_path, mask_path):
-        """Return which image (1 or 2) the mask belongs to"""
-        
-        # Load mask
-        mask = Image.open(mask_path)
-        mask = np.array(mask)
-        mask_tensor = torch.from_numpy(mask).float()
-        
-        # Load images
-        img1 = tifffile.imread(img1_path)
-        img2 = tifffile.imread(img2_path)
-        
-        # Convert to tensors
-        img1_tensor = torch.from_numpy(img1).float().permute(2, 0, 1)
-        img2_tensor = torch.from_numpy(img2).float().permute(2, 0, 1)
-        
-        # Estimate water
-        pred1 = self._estimate_water_from_nir(img1_tensor)
-        pred2 = self._estimate_water_from_nir(img2_tensor)
-        
-        # Calculate IoU
-        iou1 = self._calculate_iou(pred1, mask_tensor)
-        iou2 = self._calculate_iou(pred2, mask_tensor)
-        
-        return 1 if iou1 > iou2 else 2
-
 
     
 #---------------------------------------------------------------------------------------------------------------------------------------    
