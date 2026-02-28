@@ -324,13 +324,15 @@ def train_model(config):
     train_dataset = WaterDataset(
         images_dir=config['images_dir'],
         masks_dir=config['masks_dir'],
-        split='train'
+        split='train', 
+        selected_bands=config.get('selected_bands', None)
     )
     
     val_dataset = WaterDataset(
         images_dir=config['images_dir'],
         masks_dir=config['masks_dir'],
-        split='val'
+        split='val', 
+        selected_bands=config.get('selected_bands', None)
     )
     
     # Create data loaders
@@ -358,7 +360,8 @@ def train_model(config):
     print("CREATING MODEL")
     print("="*50)
     
-    model = UNet(n_channels=12, n_classes=1).to(device)
+    n_bands = len(config.get('selected_bands', list(range(12))))  # num of selected bands
+    model = UNet(n_channels=n_bands, n_classes=1).to(device)
     
     # Count parameters
     total_params = sum(p.numel() for p in model.parameters())
