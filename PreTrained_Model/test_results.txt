@@ -1,0 +1,7 @@
+PRETRAINED MODEL - FINAL TEST RESULTS
+========================================
+Test Loss: 0.1469
+Test IoU: 0.8337
+Test Precision: 0.9467
+Test Recall: 0.9101
+Test F1-Score: 0.9280
