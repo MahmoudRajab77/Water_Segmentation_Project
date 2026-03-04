@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from train import train_model, validate, DiceBCELoss
+from train import train_model, DiceBCELoss
 from data_load import WaterDataset 
 
 # Add src to path
@@ -162,6 +162,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
