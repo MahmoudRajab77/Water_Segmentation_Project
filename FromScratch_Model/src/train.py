@@ -257,7 +257,8 @@ def train_model(config):
     print("\n" + "="*50)
     print("STARTING TRAINING")
     print("="*50)
-    
+
+    best_train_iou = 0.0  # to track best iou
     train_losses = []
     
     for epoch in range(config['num_epochs']):
@@ -282,11 +283,24 @@ def train_model(config):
         print(f"{'─'*40}")
         print(f"Train   | Loss: {train_loss:.4f} | IoU: {train_iou:.4f}")
         print(f"{'─'*40}")
+
+        if train_iou > best_train_iou:
+            best_train_iou = train_iou
+            torch.save({
+                'epoch': epoch + 1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'train_iou': train_iou,
+                'config': config
+            }, 'best_model.pth')
+            print(f" New best model saved! (IoU: {train_iou:.4f})")
+
     
     print("\n" + "="*50)
     print("TRAINING COMPLETE!")
     print("="*50)
     
+    """
     # Save final model
     torch.save({
         'epoch': config['num_epochs'],
@@ -295,5 +309,5 @@ def train_model(config):
         'config': config
     }, 'final_model.pth')
     print(f" Final model saved!")
-    
+    """
     return model
