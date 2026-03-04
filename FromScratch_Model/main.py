@@ -35,7 +35,7 @@ def main():
          # Training hyperparameters
         'batch_size': 16,                    
         'learning_rate': 0.0003,              
-        'num_epochs': 120,                    
+        'num_epochs': 150,                    
         'optimizer': 'AdamW',                  
         'weight_decay': 1e-4,                    
         'scheduler': 'CosineAnnealingWarmRestarts',  
@@ -162,6 +162,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
