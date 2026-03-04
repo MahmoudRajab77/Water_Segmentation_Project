@@ -180,33 +180,21 @@ class WaterDataset(Dataset):
         
         print(f"Total paired images after underscore processing: {len(paired_images)}")
                 
-        # Create train/val/test splits
-        # First split: train and temp (val+test)
-        train_files, temp_files = train_test_split(
+        # Create train/test splits only (80-20 or 85-15)
+        train_files, test_files = train_test_split(
             paired_images, 
-            train_size=train_ratio,
+            train_size=0.85,  # 85% for training
             random_state=random_seed,
             shuffle=True
         )
+        val_files = []  # No validation set
         
-        # Second split: val and test from temp
-        val_ratio_adjusted = val_ratio / (val_ratio + test_ratio)
-        val_files, test_files = train_test_split(
-            temp_files,
-            train_size=val_ratio_adjusted,
-            random_state=random_seed,
-            shuffle=True
-        )
-        
-        # Store files based on split
         if split == 'train':
             self.image_files = train_files
-        elif split == 'val':
-            self.image_files = val_files
         elif split == 'test':
             self.image_files = test_files
         else:
-            raise ValueError(f"Split must be 'train', 'val', or 'test', got {split}")
+            raise ValueError(f"Split must be 'train' or 'test', got {split}")
         
         # Get corresponding mask files
         self.mask_files = [f.replace('.tif', '.png') for f in self.image_files]
@@ -262,9 +250,9 @@ class WaterDataset(Dataset):
         # Rearrange dimensions from (H, W, C) to (C, H, W) for PyTorch
         image_tensor = image_tensor.permute(2, 0, 1)  # (12, 128, 128)
 
-        # Normalize image to [0, 1] range (simple min-max normalization)
+        """  Normalize image to [0, 1] range (simple min-max normalization)
         image_tensor = (image_tensor - image_tensor.min()) / (image_tensor.max() - image_tensor.min() + 1e-8)
-
+        """
         # Choosing selected bands 
         if self.selected_bands is not None:
             image_tensor = image_tensor[self.selected_bands, :, :]
