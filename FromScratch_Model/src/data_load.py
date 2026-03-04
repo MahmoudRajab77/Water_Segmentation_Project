@@ -22,33 +22,45 @@ import random
 
 
 
-class Augmentation:
-    """Data augmentation for training"""
-    
-    @staticmethod
-    def apply(image, mask):
-        # Random horizontal flip
-        if random.random() > 0.5:
-            image = torch.flip(image, dims=[2])  # flip width
-            mask = torch.flip(mask, dims=[1])    # flip width
-        
-        # Random vertical flip
-        if random.random() > 0.5:
-            image = torch.flip(image, dims=[1])  # flip height
-            mask = torch.flip(mask, dims=[0])    # flip height
-        
-        # Random rotation (90, 180, 270 degrees)
-        if random.random() > 0.7:
-            k = random.randint(1, 3)  # 1, 2, or 3 rotations of 90°
-            image = torch.rot90(image, k, dims=[1, 2])
-            mask = torch.rot90(mask, k, dims=[0, 1])
-        
-        return image, mask
+
 
 #----------------------------------------------------------------------------------------------------------------------------------------
 
 class WaterDataset(Dataset):
     # Custom Dataset for water segmentation using satellite images and masks.
+    
+    """Apply data augmentation to training samples"""
+    def _apply_augmentation(self, image, mask):
+
+        # Random horizontal flip
+        if torch.rand(1) > 0.5:
+            image = torch.flip(image, dims=[2])
+            mask = torch.flip(mask, dims=[1])
+        
+        # Random vertical flip
+        if torch.rand(1) > 0.5:
+            image = torch.flip(image, dims=[1])
+            mask = torch.flip(mask, dims=[0])
+        
+        # Random rotation (90, 180, 270)
+        if torch.rand(1) > 0.7:
+            k = torch.randint(1, 4, (1,)).item()
+            image = torch.rot90(image, k, dims=[1, 2])
+            mask = torch.rot90(mask, k, dims=[0, 1])
+        
+        # Random brightness/contrast (for first 3 bands mostly)
+        if torch.rand(1) > 0.5:
+            brightness_factor = 0.8 + 0.4 * torch.rand(1)
+            image = image * brightness_factor
+            image = torch.clamp(image, 0, 1)
+        
+        # Add small Gaussian noise (for robustness)
+        if torch.rand(1) > 0.8:
+            noise = torch.randn_like(image) * 0.01
+            image = image + noise
+            image = torch.clamp(image, 0, 1)
+        
+        return image, mask
     
     """Simple water estimation using NIR band (index 4)"""
 
@@ -259,7 +271,7 @@ class WaterDataset(Dataset):
 
         # Apply augmentation only for training
         if self.split == 'train':
-            image_tensor, mask_tensor = Augmentation.apply(image_tensor, mask_tensor)
+            image_tensor, mask_tensor = self._apply_augmentation(image_tensor, mask_tensor)
         
         return image_tensor, mask_tensor
 
