@@ -100,9 +100,9 @@ def main():
     print("="*60)
     
     # Load best model
-    checkpoint = torch.load('final_model.pth', weights_only=False)
+    checkpoint = torch.load('best_model.pth', weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
-    print(f" Loaded best model from epoch {checkpoint['epoch']+1} with IoU: {checkpoint['val_iou']:.4f}")
+    print(f" Loaded best model from epoch {checkpoint['epoch']} with IoU: {checkpoint['train_iou']:.4f}")    
     
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -162,6 +162,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
