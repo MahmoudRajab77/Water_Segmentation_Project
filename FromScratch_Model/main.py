@@ -10,7 +10,8 @@ from torch.utils.data import DataLoader
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from train import train_model, DiceBCELoss
+from sklearn.metrics import precision_score, recall_score, f1_score
+from train import train_model, DiceBCELoss, calculate_iou
 from data_load import WaterDataset 
 
 # Add src to path
@@ -132,9 +133,53 @@ def main():
     
     # Test the model
     print("\n Evaluating on test set...")
-    test_loss, test_iou, test_precision, test_recall, test_f1 = validate(
-        model, test_loader, criterion, device
-    )
+    model.eval()
+    test_loss = 0
+    test_iou = 0
+    test_precision = 0
+    test_recall = 0
+    test_f1 = 0
+    num_batches = 0
+    
+    
+    all_preds = []
+    all_targets = []
+    
+    with torch.no_grad():
+        for images, masks in test_loader:
+            images = images.to(device)
+            masks = masks.to(device)
+            
+            if len(masks.shape) == 3:
+                masks = masks.unsqueeze(1)
+            masks = masks.float()
+            
+            outputs = model(images)
+            loss = criterion(outputs, masks)
+            
+            pred_probs = torch.sigmoid(outputs)
+            batch_iou = calculate_iou(pred_probs, masks)
+            
+            # جمع للـ metrics
+            pred_binary = (pred_probs > 0.5).float()
+            all_preds.append(pred_binary.cpu().numpy())
+            all_targets.append(masks.cpu().numpy())
+            
+            test_loss += loss.item()
+            test_iou += batch_iou
+            num_batches += 1
+
+    # Calculating averages
+    test_loss /= num_batches
+    test_iou /= num_batches
+
+    # Calculating Precision, recall and f1 over all data
+    all_preds = np.concatenate(all_preds).flatten()
+    all_targets = np.concatenate(all_targets).flatten()
+    
+    test_precision = precision_score(all_targets, all_preds, zero_division=0)
+    test_recall = recall_score(all_targets, all_preds, zero_division=0)
+    test_f1 = f1_score(all_targets, all_preds, zero_division=0)
     
     # Print final results
     print("\n" + "="*60)
@@ -162,6 +207,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
