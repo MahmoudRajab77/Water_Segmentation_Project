@@ -150,6 +150,10 @@ def main():
         for images, masks in test_loader:
             images = images.to(device)
             masks = masks.to(device)
+
+            batch_mean = images.mean(dim=(0, 2, 3), keepdim=True)
+            batch_std = images.std(dim=(0, 2, 3), keepdim=True) + 1e-8
+            images = (images - batch_mean) / batch_std
             
             if len(masks.shape) == 3:
                 masks = masks.unsqueeze(1)
@@ -208,6 +212,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
