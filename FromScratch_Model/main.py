@@ -161,7 +161,7 @@ def main():
             pred_probs = torch.sigmoid(outputs)
             batch_iou = calculate_iou(pred_probs, masks)
             
-            # جمع للـ metrics
+            
             pred_binary = (pred_probs > 0.5).float()
             all_preds.append(pred_binary.cpu().numpy())
             all_targets.append(masks.cpu().numpy())
@@ -208,6 +208,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
