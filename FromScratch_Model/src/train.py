@@ -148,13 +148,14 @@ def calculate_iou(pred, target, threshold=0.5):
 """
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
-   
-    model.train()  # Set model to training mode
+    """
+    Train for one epoch with batch normalization and augmentation.
+    """
+    model.train()
     total_loss = 0
     total_iou = 0
     num_batches = 0
     
-    # Create progress bar
     progress_bar = tqdm(dataloader, desc='Training', leave=False, ncols=80)
     
     for batch_idx, (images, masks) in enumerate(progress_bar):
@@ -162,14 +163,23 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
         images = images.to(device)
         masks = masks.to(device)
         
-        # Add channel dimension to masks if needed (from (B, H, W) to (B, 1, H, W))
+        # ===== BATCH NORMALIZATION (PER BATCH) =====
+        # Calculate mean and std across batch (dim=0) and spatial dims (2,3)
+        # Keepdim=True to maintain shape for broadcasting
+        batch_mean = images.mean(dim=(0, 2, 3), keepdim=True)
+        batch_std = images.std(dim=(0, 2, 3), keepdim=True) + 1e-8
+        
+        # Normalize: (x - mean) / std
+        images = (images - batch_mean) / batch_std
+        # ============================================
+        
+        # Add channel dimension to masks if needed
         if len(masks.shape) == 3:
             masks = masks.unsqueeze(1)
         
-        # Convert masks to float for loss calculation
         masks = masks.float()
         
-        # Zero the gradients
+        # Zero gradients
         optimizer.zero_grad()
         
         # Forward pass
@@ -184,7 +194,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
         # Update weights
         optimizer.step()
         
-        # Calculate IoU for this batch
+        # Calculate IoU
         with torch.no_grad():
             pred_probs = torch.sigmoid(outputs)
             batch_iou = calculate_iou(pred_probs, masks)
@@ -200,7 +210,6 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
             'iou': f'{batch_iou:.4f}'
         })
     
-    # Calculate average metrics
     avg_loss = total_loss / num_batches
     avg_iou = total_iou / num_batches
     
