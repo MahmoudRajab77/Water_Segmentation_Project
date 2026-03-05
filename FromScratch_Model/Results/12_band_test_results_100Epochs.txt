@@ -1,0 +1,7 @@
+FINAL TEST RESULTS
+========================================
+Test Loss: 0.2317
+Test IoU: 0.6452
+Test Precision: 0.8422
+Test Recall: 0.7562
+Test F1-Score: 0.7968
