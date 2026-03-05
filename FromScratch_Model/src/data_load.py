@@ -47,7 +47,8 @@ class WaterDataset(Dataset):
             k = torch.randint(1, 4, (1,)).item()
             image = torch.rot90(image, k, dims=[1, 2])
             mask = torch.rot90(mask, k, dims=[0, 1])
-        
+
+        """
         # Random brightness/contrast (for first 3 bands mostly)
         if torch.rand(1) > 0.5:
             brightness_factor = 0.8 + 0.4 * torch.rand(1)
@@ -59,9 +60,9 @@ class WaterDataset(Dataset):
             noise = torch.randn_like(image) * 0.01
             image = image + noise
             image = torch.clamp(image, 0, 1)
-        
+        """
         return image, mask
-    
+    #--------------------------------------------------------------------------
     """Simple water estimation using NIR band (index 4)"""
 
     def _estimate_water_from_nir(self, image_tensor):
