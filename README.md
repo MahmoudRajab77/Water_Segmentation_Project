@@ -47,35 +47,65 @@ This project implements deep learning models for **water body segmentation** usi
 Water_Segmentation_Project/
 │
 ├── FromScratch_Model/                          # Custom U-Net from scratch
+
 │   ├── src/
+
 │   │   ├── __init__.py
+
 │   │   ├── data_load.py                        # Dataset class & splits
+
 │   │   ├── model.py                             # U-Net architecture
+
 │   │   ├── train.py                              # Training loop
+
 │   │   ├── visualize.py                           # Band visualization
+
 │   │   └── visualizations/                         # Output images
+
 │   │       ├── all_bands_grid.png
+
 │   │       ├── band_01_Coastal_aerosol.png
+
 │   │       ├── band_02_Blue.png
+
 │   │       ├── ...
+
 │   │       ├── rgb_natural.png
+
 │   │       ├── rgb_false_color.png
+
 │   │       └── water_indices.png
+
 │   ├── main.py
+
 │   ├── requirements.txt
+
 │   ├── test_results.txt
+
 │   └── training_curves.png
+
 │
+
 ├── PreTrained_Model/                           # U-Net with ResNet34 encoder
+
 │   ├── src/
+
 │   │   ├── __init__.py
+
 │   │   ├── data_load.py                         # (shared with FromScratch)
+
 │   │   ├── model.py                              # Pretrained U-Net
+
 │   │   ├── train.py                               # Training with pretrained
+
 │   │   └── visualize.py                            # Band visualization
+
 │   ├── main.py
+
 │   └── requirements.txt
+
 │
+
 └── README.md
 
 
