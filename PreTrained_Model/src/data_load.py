@@ -11,32 +11,30 @@ from sklearn.model_selection import train_test_split
 import random
 
 
-class Augmentation:
-    """Data augmentation for training"""
-    
-    @staticmethod
-    def apply(image, mask):
-        # Random horizontal flip
-        if random.random() > 0.5:
-            image = torch.flip(image, dims=[2])  # flip width
-            mask = torch.flip(mask, dims=[1])    # flip width
-        
-        # Random vertical flip
-        if random.random() > 0.5:
-            image = torch.flip(image, dims=[1])  # flip height
-            mask = torch.flip(mask, dims=[0])    # flip height
-        
-        # Random rotation (90, 180, 270 degrees)
-        if random.random() > 0.7:
-            k = random.randint(1, 3)  # 1, 2, or 3 rotations of 90°
-            image = torch.rot90(image, k, dims=[1, 2])
-            mask = torch.rot90(mask, k, dims=[0, 1])
-        
-        return image, mask
-
-
 class WaterDataset(Dataset):
     # Custom Dataset for water segmentation using satellite images and masks.
+    
+    """Apply data augmentation to training samples"""
+    def _apply_augmentation(self, image, mask):
+        # Random horizontal flip
+        if torch.rand(1) > 0.5:
+            image = torch.flip(image, dims=[2])
+            mask = torch.flip(mask, dims=[1])
+        
+        # Random vertical flip
+        if torch.rand(1) > 0.5:
+            image = torch.flip(image, dims=[1])
+            mask = torch.flip(mask, dims=[0])
+        
+        # Random rotation (90, 180, 270)
+        if torch.rand(1) > 0.7:
+            k = torch.randint(1, 4, (1,)).item()
+            image = torch.rot90(image, k, dims=[1, 2])
+            mask = torch.rot90(mask, k, dims=[0, 1])
+
+        return image, mask
+    
+    #--------------------------------------------------------------------------
     
     """Simple water estimation using NIR band (index 4)"""
     def _estimate_water_from_nir(self, image_tensor):
@@ -76,7 +74,7 @@ class WaterDataset(Dataset):
         iou2 = self._calculate_iou(pred2, mask_tensor)
         
         return 1 if iou1 > iou2 else 2
-    
+
     #-----------------------------------------------------------------------------------------------------------------------------
     
     def __init__(self, images_dir, masks_dir, split='train', train_ratio=0.85, random_seed=42, selected_bands=None):
@@ -187,17 +185,18 @@ class WaterDataset(Dataset):
         
         if len(self.image_files) == 0:
             raise RuntimeError("No matching image-mask pairs found!")
-    
+        
     #---------------------------------------------------------------------------------
     
     def __len__(self):
         return len(self.image_files)
-    
+
     #---------------------------------------------------------------------------------
     
     def __getitem__(self, idx):
-        """Load and return a sample (image, mask) at the given index."""
-        
+        """
+        Load and return a sample (image, mask) at the given index.
+        """
         # Get filenames for this index
         img_name = self.image_files[idx]
         mask_name = self.mask_files[idx]
@@ -219,14 +218,16 @@ class WaterDataset(Dataset):
         
         # Rearrange dimensions from (H, W, C) to (C, H, W) for PyTorch
         image_tensor = image_tensor.permute(2, 0, 1)  # (12, 128, 128)
-        
+
         # اختيار الـ bands المحددة (إن وجدت)
         if self.selected_bands is not None:
             image_tensor = image_tensor[self.selected_bands, :, :]
-        
-        # تطبيق Augmentation فقط للتدريب
+
+        # تطبيق augmentation فقط للتدريب
         if self.split == 'train':
-            image_tensor, mask_tensor = Augmentation.apply(image_tensor, mask_tensor)
+            image_tensor, mask_tensor = self._apply_augmentation(image_tensor, mask_tensor)
+        
+        # ملاحظة: مفيش normalization هنا! الموديل هو اللي هيعمل ImageNet normalization
         
         return image_tensor, mask_tensor
 
@@ -272,6 +273,6 @@ if __name__ == "__main__":
     print(f"  Mask shape: {mask.shape}")
     
     print("\n" + "="*50)
-    print("✅ DATA SPLITTING WORKING CORRECTLY!")
+    print(" DATA SPLITTING WORKING CORRECTLY!")
     print("="*50)
     """
