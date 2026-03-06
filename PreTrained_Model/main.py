@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from train import train_model, validate, DiceBCELoss
+from train import train_model, DiceBCELoss
 from data_load import WaterDataset
 
 
@@ -32,7 +32,7 @@ def main():
         'scheduler': 'CosineAnnealingWarmRestarts',
         'loss': 'DiceBCE',
         'augmentation': 'Heavy',
-        'selected_bands': [2, 3, 4, 5, 6, 8, 9, 11]  # 8 bands (Option C)
+        'selected_bands': [2, 3, 4, 5, 6, 8, 9, 11]  # 8 bands 
     }
     
     # Parse command line arguments
@@ -151,6 +151,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
