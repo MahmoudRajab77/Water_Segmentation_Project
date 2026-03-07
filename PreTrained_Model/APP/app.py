@@ -19,10 +19,10 @@ import time
 # ========== PATH CONFIGURATION ==========
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-MODEL_PATH = os.path.join(BASE_DIR, '..', 'best_model.pth')  # رجوع لمجلد PreTrained_Model
+MODEL_PATH = os.path.join(BASE_DIR, '..', 'best_model.pth')  
 MODEL_URL = "https://github.com/MahmoudRajab77/Water_Segmentation_Project/releases/download/v1.0.0/best_model.pth"
 
-# Add src to path (لما يكون الـ src بره مجلد APP)
+# Add src to path 
 import sys
 sys.path.append(os.path.join(BASE_DIR, '..', 'src'))
 from model import PretrainedUNet
@@ -114,6 +114,8 @@ def calculate_metrics(pred_mask, true_mask):
 def index():
     return render_template('index.html')
 
+#-----------------------------------------------------------------------
+
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
@@ -130,6 +132,19 @@ def predict():
         
         image_bytes = image_file.read()
         input_tensor, temp_path = prepare_image(image_bytes, image_file.filename)
+        
+        # ========== Converting original image to base64 ==========
+        from PIL import Image
+        import base64
+        import io
+        
+        def get_image_base64(image_path):
+            with open(image_path, 'rb') as f:
+                return base64.b64encode(f.read()).decode()
+        
+        original_base64 = get_image_base64(temp_path)
+        original_ext = image_file.filename.split('.')[-1]
+        # ===========================================================
         
         with torch.no_grad():
             output = model(input_tensor)
@@ -155,7 +170,8 @@ def predict():
             "area_km2": round(area_km2, 3),
             "water_pixels": water_pixels,
             "total_pixels": total_pixels,
-            "mask_image": f"data:image/png;base64,{mask_base64}"
+            "mask_image": f"data:image/png;base64,{mask_base64}",
+            "original_image": f"data:image/{original_ext};base64,{original_base64}"  # Adding original image 
         }
         
         # Ground truth metrics
@@ -165,7 +181,15 @@ def predict():
             gt = np.array(gt)
             gt = (gt > 128).astype(np.uint8)
             pred_np = pred_mask[0, 0].cpu().numpy()
+            
+            # printing to make sure of values 
+            print("Pred mask unique values:", np.unique(pred_np))
+            print("GT mask unique values:", np.unique(gt))
+            
             metrics = calculate_metrics(pred_np, gt)
+            print("IoU:", metrics['iou'], "Precision:", metrics['precision'], 
+                  "Recall:", metrics['recall'], "F1:", metrics['f1'])
+            
             response.update(metrics)
         
         return jsonify(response)
@@ -173,6 +197,7 @@ def predict():
     except Exception as e:
         print("ERROR:", e)
         return jsonify({"error": str(e)})
+
 
 # ========== RUN ==========
 if __name__ == '__main__':
