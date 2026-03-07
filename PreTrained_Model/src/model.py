@@ -47,7 +47,7 @@ class PretrainedUNet(nn.Module):
 """
 if __name__ == "__main__":
     # Quick test
-    model = PretrainedUNet(n_channels=8, n_classes=1)
+    model = PretrainedUNet(n_channels=9, n_classes=1)
     print(f"Model created with {sum(p.numel() for p in model.parameters()):,} parameters")
     
     x = torch.randn(2, 8, 128, 128)
