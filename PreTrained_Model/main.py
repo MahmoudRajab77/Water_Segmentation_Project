@@ -130,12 +130,6 @@ def main():
             images = images.to(device)
             masks = masks.to(device)
             
-            # ===== BATCH NORMALIZATION for testing same as (training) =====
-            batch_mean = images.mean(dim=(0, 2, 3), keepdim=True)
-            batch_std = images.std(dim=(0, 2, 3), keepdim=True) + 1e-8
-            images = (images - batch_mean) / batch_std
-            
-            
             if len(masks.shape) == 3:
                 masks = masks.unsqueeze(1)
             masks = masks.float()
@@ -193,6 +187,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
