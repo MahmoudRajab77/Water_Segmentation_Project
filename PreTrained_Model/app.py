@@ -32,7 +32,8 @@ from model import PretrainedUNet
 # =========================
 
 app = Flask(__name__)
-run_with_ngrok(app)
+
+
 
 # =========================
 # Paths
