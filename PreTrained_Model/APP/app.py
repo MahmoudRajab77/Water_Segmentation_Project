@@ -176,34 +176,33 @@ def predict():
         
         # Ground truth metrics
         if "mask" in request.files and request.files["mask"].filename != "":
-            mask_file = request.files["mask"]
+                mask_file = request.files["mask"]
                 
-            gt = Image.open(mask_file)
+                # Read mask without converting 
+                gt = Image.open(mask_file)
                 
-            if gt.mode != 'L':
-                gt = gt.convert('L')
+                # Convert to grayscale if not 
+                if gt.mode != 'L':
+                    gt = gt.convert('L')
                 
-            gt = gt.resize((128, 128), Image.NEAREST)
+                # change size
+                gt = gt.resize((128, 128), Image.NEAREST)
                 
-            # Convert to numpy array
-            gt_np = np.array(gt)
+                # change to numpy array
+                gt_np = np.array(gt)
                 
-            # Verify Values
-            if gt_np.max() > 1:
-                gt_np = (gt_np > 128).astype(np.uint8)
-            else:
-                gt_np = gt_np.astype(np.uint8)
+                # printing values
+                print("GT unique values BEFORE processing:", np.unique(gt_np))
                 
-            pred_np = pred_mask[0, 0].cpu().numpy()
+                # Converting 255 to 1  if it wasn't 0, 1 
+                if gt_np.max() > 1:
+                    gt_np = (gt_np > 128).astype(np.uint8)
                 
-            print("Pred mask unique values:", np.unique(pred_np))
-            print("GT mask unique values:", np.unique(gt_np))
+                print("GT unique values AFTER processing:", np.unique(gt_np))
                 
-            metrics = calculate_metrics(pred_np, gt_np)
-            print("IoU:", metrics['iou'], "Precision:", metrics['precision'], 
-                      "Recall:", metrics['recall'], "F1:", metrics['f1'])
-                
-            response.update(metrics)
+                pred_np = pred_mask[0, 0].cpu().numpy()
+                metrics = calculate_metrics(pred_np, gt_np)
+                response.update(metrics)
         
         return jsonify(response)
     
