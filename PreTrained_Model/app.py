@@ -23,8 +23,16 @@ from model import PretrainedUNet
 # For ngrok
 from flask_ngrok import run_with_ngrok
 
+
+
+
+
+
+
+
+#-----------------------------------------------------------------------------------------------------------
 app = Flask(__name__)
-run_with_ngrok(app)  # عشان يشتغل على ngrok
+run_with_ngrok(app)  
 
 # ========== CONFIGURATION ==========
 UPLOAD_FOLDER = 'uploads'
@@ -153,11 +161,17 @@ def calculate_metrics(pred_mask, true_mask):
         'f1': round(f1, 4)
     }
 
-# ========== ROUTES ==========
+
+
+
+# ======================================================={ ROUTES }======================================================
+
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     """Serve uploaded files"""
     return send_from_directory(UPLOAD_FOLDER, filename)
+    
+#---------------------------------------------------------------------------------------------------------
 
 @app.route('/', methods=['GET'])
 def index():
@@ -749,6 +763,7 @@ def index():
 </html>
     '''
 
+#----------------------------------------------------------------------------------------------------------------------------
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -842,6 +857,7 @@ def predict():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+#----------------------------------------------------------------------------------------------------------------------------------------------------
 
 # ========== RUN APP ==========
 if __name__ == '__main__':
