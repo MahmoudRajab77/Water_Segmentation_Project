@@ -41,6 +41,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 MODEL_PATH = os.path.join(BASE_DIR, "best_model.pth")
 
+MODEL_URL = "https://github.com/MahmoudRajab77/Water_Segmentation_Project/releases/tag/v1.0.0"
+
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model...")
+    import urllib.request
+    urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+    print("Model downloaded.")
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'tif','tiff','png','jpg','jpeg'}
