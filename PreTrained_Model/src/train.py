@@ -62,7 +62,7 @@ def calculate_iou(pred, target, threshold=0.5):
 
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
-    """Train for one epoch - بدون Batch Normalization"""
+    """Train for one epoch - without Batch Normalization"""
     model.train()
     total_loss = 0
     total_iou = 0
@@ -163,7 +163,7 @@ def train_model(config):
     
     # Create model
     print("\n" + "="*50)
-    print("CREATING PRETRAINED MODEL (ResNet34)")
+    print("CREATING PRETRAINED MODEL (EfficientNet-b4)")
     print("="*50)
     
     model = PretrainedUNet(n_channels=n_bands, n_classes=1).to(device)
