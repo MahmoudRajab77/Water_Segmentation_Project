@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌊 Water Segmentation AI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🌊 Satellite Water Detection</h1>
+        <p class="subtitle">AI-powered water segmentation using U-Net + EfficientNet (9 spectral bands)</p>
+        
+        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+            <div class="upload-icon">📤</div>
+            <p>Click to upload satellite image</p>
+            <p class="small-text">Supports: .tif, .tiff, .png, .jpg, .jpeg</p>
+            <input type="file" id="imageInput" class="file-input" accept=".tif,.tiff,.png,.jpg,.jpeg">
+        </div>
+        <div id="imageName" class="file-name"></div>
+        
+        <div class="upload-area-small" onclick="document.getElementById('maskInput').click()">
+            <p>🔬 Upload Ground Truth Mask (optional)</p>
+            <p class="small-text">Upload the real water mask to see IoU, Precision, Recall, F1</p>
+            <input type="file" id="maskInput" class="file-input" accept=".png,.tif">
+        </div>
+        <div id="maskName" class="file-name"></div>
+        
+        <div class="analyze-btn-container">
+            <button id="analyzeBtn" class="analyze-btn" disabled>🔬 Analyze Image</button>
+        </div>
+        
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Analyzing image... This may take a few seconds</p>
+        </div>
+        
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        
+        <div id="results" class="results" style="display: none;">
+            <div class="images-container">
+                <div class="image-card">
+                    <h3>📷 Original Image</h3>
+                    <img id="originalImage" src="" alt="Original Image">
+                </div>
+                <div class="image-card">
+                    <h3>🧪 Water Detection Mask</h3>
+                    <img id="maskImage" src="" alt="Segmentation Mask">
+                    <div class="pixel-info" id="pixelInfo"></div>
+                </div>
+            </div>
+            
+            <div class="classification-result" id="classificationResult">
+                <span class="result-badge">🌊 Water Detection Result</span>
+                <div class="result-text" id="classificationText">Analyzing...</div>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" id="confidenceFill" style="width: 0%">0%</div>
+                </div>
+                <p class="confidence-detail" id="confidenceDetail">Average model confidence across all pixels</p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="label">Water Coverage</div>
+                    <div class="value" id="waterPercentage">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Water Area</div>
+                    <div class="value" id="areaValue">0 km²</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Water Pixels</div>
+                    <div class="value" id="pixelCount">0</div>
+                </div>
+            </div>
+            
+            <div id="metricsCard" class="metrics-card" style="display: none;">
+                <h3>📊 Model Performance on this Image</h3>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <span class="metric-label">IoU</span>
+                        <span class="metric-value" id="iouValue">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Precision</span>
+                        <span class="metric-value" id="precisionValue">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Recall</span>
+                        <span class="metric-value" id="recallValue">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">F1-Score</span>
+                        <span class="metric-value" id="f1Value">0.00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="reset-btn-container">
+                <button class="btn" onclick="resetUpload()">🔄 Analyze New Image</button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <span class="badge">🚀 v2.0</span>
+            <span>Model: U-Net + EfficientNet-b4 | 9 spectral bands | IoU: 0.803</span>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
