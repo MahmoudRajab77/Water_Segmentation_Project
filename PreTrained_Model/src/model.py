@@ -27,7 +27,7 @@ class PretrainedUNet(nn.Module):
     def __init__(self, n_channels=9, n_classes=1):                # Adjusted n_channels to be 9 instead of 8
         super().__init__()
         self.model = smp.Unet(
-            encoder_name="efficientnet-b4",        # changed the ResNet34 encoder 
+            encoder_name="resnet34",        # changed back to the ResNet34 encoder 
             encoder_weights="imagenet",
             in_channels=n_channels,
             classes=n_classes
