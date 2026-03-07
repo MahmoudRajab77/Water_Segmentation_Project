@@ -58,34 +58,34 @@ Water_Segmentation_Project/
 
 │   │   ├── train.py                              # Training loop
 
-│   │   ├── visualize.py                           # Band visualization
+│   │   └── visualize.py                           # Band visualization
 
-│   │   └── visualizations/                         # Output images
+│   ├── Results/
 
-│   │       ├── all_bands_grid.png
+│   │   ├── all_bands_grid.png
 
-│   │       ├── band_01_Coastal_aerosol.png
+│   │   ├── band_01_Coastal_aerosol.png
 
-│   │       ├── band_02_Blue.png
+│   │   ├── band_02_Blue.png
 
-│   │       ├── ...
+│   │   ├── ...
 
-│   │       ├── rgb_natural.png
+│   │   ├── rgb_natural.png
 
-│   │       ├── rgb_false_color.png
+│   │   ├── rgb_false_color.png
 
-│   │       └── water_indices.png
+│   │   ├── water_indices.png
+
+│   │   ├── test_results.txt
+
+│   │   └── training_curves.png
 
 │   ├── main.py
 
-│   ├── requirements.txt
-
-│   ├── test_results.txt
-
-│   └── training_curves.png
+│   └── requirements.txt
 
 │
-
+ 
 ├── PreTrained_Model/                           # U-Net with EfficientNet-b4 encoder
 
 │   ├── src/
@@ -100,13 +100,29 @@ Water_Segmentation_Project/
 
 │   │   └── visualize.py                            # Band visualization
 
+│   ├── Results/
+
+│   │   ├── test_results.txt
+
+│   │   └── training_curves.png
+
+│   ├── APP/
+
+│   │   ├── templates/
+        
+│   │   │   └── index.html
+            
+│   │   ├── static/
+        
+│   │   │   ├── script.js
+            
+│   │   │   └── style.css
+            
+│   │   └── app.py 
+
 │   ├── main.py
-
-│   ├── app.py
-
+        
 │   └── requirements.txt
-
-│
 
 └── README.md
 
@@ -124,5 +140,5 @@ cd FromScratch_Model
 python main.py 
 
 # For Pretrained model
-cd ../PreTrained_Model
+cd PreTrained_Model
 python main.py 
