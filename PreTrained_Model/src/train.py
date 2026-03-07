@@ -163,7 +163,7 @@ def train_model(config):
     
     # Create model
     print("\n" + "="*50)
-    print("CREATING PRETRAINED MODEL (EfficientNet-b4)")
+    print("CREATING PRETRAINED MODEL (ResNet34)")
     print("="*50)
     
     model = PretrainedUNet(n_channels=n_bands, n_classes=1).to(device)
