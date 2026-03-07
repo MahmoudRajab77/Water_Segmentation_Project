@@ -23,16 +23,8 @@ from model import PretrainedUNet
 # For ngrok
 from flask_ngrok import run_with_ngrok
 
-
-
-
-
-
-
-
-#-----------------------------------------------------------------------------------------------------------
 app = Flask(__name__)
-run_with_ngrok(app)  
+run_with_ngrok(app)
 
 # ========== CONFIGURATION ==========
 UPLOAD_FOLDER = 'uploads'
@@ -119,6 +111,7 @@ def mask_to_image(mask_tensor):
     """Convert mask tensor to PIL Image for response"""
     mask = mask_tensor.squeeze().cpu().numpy()
     mask = (mask > 0.5).astype(np.uint8) * 255
+    mask = mask.astype(np.uint8)
     return Image.fromarray(mask)
 
 def encode_image_to_base64(pil_image):
@@ -135,6 +128,10 @@ def get_image_base64(image_path):
 
 def calculate_metrics(pred_mask, true_mask):
     """Calculate IoU, precision, recall, F1 between prediction and ground truth"""
+    
+    # Ensure correct data types
+    pred_mask = pred_mask.astype(np.float32)
+    true_mask = true_mask.astype(np.float32)
     
     # Flatten
     pred_flat = pred_mask.flatten()
@@ -161,17 +158,11 @@ def calculate_metrics(pred_mask, true_mask):
         'f1': round(f1, 4)
     }
 
-
-
-
-# ======================================================={ ROUTES }======================================================
-
+# ========== ROUTES ==========
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     """Serve uploaded files"""
     return send_from_directory(UPLOAD_FOLDER, filename)
-    
-#---------------------------------------------------------------------------------------------------------
 
 @app.route('/', methods=['GET'])
 def index():
@@ -270,6 +261,36 @@ def index():
             margin-top: 15px;
             color: #667eea;
             font-weight: bold;
+        }
+        
+        .analyze-btn-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 10px 20px rgba(67, 233, 123, 0.3);
+        }
+        
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(67, 233, 123, 0.4);
+        }
+        
+        .analyze-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         
         .loading {
@@ -527,6 +548,13 @@ def index():
         </div>
         <div id="maskName" class="file-name"></div>
         
+        <!-- Analyze Button -->
+        <div class="analyze-btn-container">
+            <button id="analyzeBtn" class="analyze-btn" disabled>
+                🔬 Analyze Image
+            </button>
+        </div>
+        
         <div id="loading" class="loading">
             <div class="spinner"></div>
             <p>Analyzing image... This may take a few seconds</p>
@@ -608,8 +636,10 @@ def index():
     </div>
     
     <script>
+        // Initialize variables
         const imageInput = document.getElementById('imageInput');
         const maskInput = document.getElementById('maskInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
         const imageName = document.getElementById('imageName');
         const maskName = document.getElementById('maskName');
         const loading = document.getElementById('loading');
@@ -631,24 +661,26 @@ def index():
         const f1Value = document.getElementById('f1Value');
         
         let groundTruthFile = null;
+        let imageFile = null;
+        
+        // Disable analyze button initially
+        analyzeBtn.disabled = true;
         
         imageInput.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+            imageFile = e.target.files[0];
+            if (!imageFile) return;
             
-            imageName.textContent = `📁 Image: ${file.name}`;
+            imageName.textContent = `📁 Image: ${imageFile.name}`;
             
             // Show original image
             const reader = new FileReader();
             reader.onload = function(e) {
                 originalImage.src = e.target.result;
             };
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(imageFile);
             
-            // If we have both image and mask, analyze
-            if (groundTruthFile) {
-                uploadAndAnalyze(file, groundTruthFile);
-            }
+            // Enable analyze button if image is selected
+            analyzeBtn.disabled = false;
         });
         
         maskInput.addEventListener('change', function(e) {
@@ -657,19 +689,23 @@ def index():
             
             groundTruthFile = file;
             maskName.textContent = `📋 Mask: ${file.name}`;
-            
-            // If we have both image and mask, analyze
-            const imageFile = imageInput.files[0];
-            if (imageFile) {
-                uploadAndAnalyze(imageFile, file);
-            }
         });
+        
+        function startAnalysis() {
+            if (!imageFile) {
+                showError('Please select an image first');
+                return;
+            }
+            
+            uploadAndAnalyze(imageFile, groundTruthFile);
+        }
         
         async function uploadAndAnalyze(imageFile, maskFile = null) {
             results.style.display = 'none';
             metricsCard.style.display = 'none';
             errorMessage.style.display = 'none';
             loading.style.display = 'block';
+            analyzeBtn.disabled = true;
             
             const formData = new FormData();
             formData.append('image', imageFile);
@@ -695,7 +731,7 @@ def index():
                     pixelCount.textContent = data.water_pixels.toLocaleString();
                     pixelInfo.textContent = `Total pixels: ${data.total_pixels} | Water pixels: ${data.water_pixels}`;
                     
-                    // Update confidence bar (average model confidence)
+                    // Update confidence bar
                     const confidence = data.avg_confidence;
                     confidenceFill.style.width = confidence + '%';
                     confidenceFill.textContent = confidence.toFixed(1) + '%';
@@ -738,6 +774,7 @@ def index():
                 showError('Failed to connect to server: ' + error.message);
             } finally {
                 loading.style.display = 'none';
+                analyzeBtn.disabled = false;
             }
         }
         
@@ -749,6 +786,7 @@ def index():
         function resetUpload() {
             imageInput.value = '';
             maskInput.value = '';
+            imageFile = null;
             groundTruthFile = null;
             imageName.textContent = '';
             maskName.textContent = '';
@@ -757,13 +795,16 @@ def index():
             errorMessage.style.display = 'none';
             originalImage.src = '';
             maskImage.src = '';
+            analyzeBtn.disabled = true;
         }
+        
+        // Add event listener to analyze button
+        document.getElementById('analyzeBtn').addEventListener('click', startAnalysis);
     </script>
 </body>
 </html>
     '''
 
-#----------------------------------------------------------------------------------------------------------------------------
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -805,7 +846,7 @@ def predict():
         total_pixels = pred_mask.numel()
         water_percentage = (water_pixels / total_pixels) * 100
         
-        # Calculate average confidence across ALL pixels (fixed)
+        # Calculate average confidence across ALL pixels
         avg_confidence = pred_probs.mean().item() * 100
         
         # Calculate approximate area (30m per pixel)
@@ -857,7 +898,6 @@ def predict():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-#----------------------------------------------------------------------------------------------------------------------------------------------------
 
 # ========== RUN APP ==========
 if __name__ == '__main__':
