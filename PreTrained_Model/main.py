@@ -54,7 +54,7 @@ def main():
     
     # Print configuration
     print("="*60)
-    print("PRETRAINED U-NET (EfficientNet-b4) WATER SEGMENTATION")
+    print("PRETRAINED U-NET (ResNet34) WATER SEGMENTATION")
     print("="*60)
     for key, value in config.items():
         print(f"{key:20}: {value}")
@@ -187,6 +187,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
