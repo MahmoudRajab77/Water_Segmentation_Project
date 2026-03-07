@@ -9,53 +9,22 @@ import base64
 import numpy as np
 import torch
 import torch.nn as nn
-from flask import Flask, request, jsonify, render_template
-from flask_ngrok import run_with_ngrok
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from PIL import Image
 import tifffile
 from werkzeug.utils import secure_filename
+
 # Add src to path
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from model import PretrainedUNet
-import requests
-from tqdm import tqdm
-import os
 
+# For ngrok
+from flask_ngrok import run_with_ngrok
 
-
-
-
-
-# ========== GITHUB RELEASES SETUP ==========
-MODEL_PATH = 'best_model.pth'
-RELEASE_URL = 'https://github.com/MahmoudRajab77/Water_Segmentation_Project/releases/download/v1.0.0/best_model.pth'
-
-# Download model from GitHub Releases if not exists
-if not os.path.exists(MODEL_PATH):
-    print(f"📥 Downloading model from GitHub Releases...")
-    
-    response = requests.get(RELEASE_URL, stream=True)
-    total_size = int(response.headers.get('content-length', 0))
-    
-    with open(MODEL_PATH, 'wb') as f:
-        with tqdm(total=total_size, unit='B', unit_scale=True, desc=MODEL_PATH) as pbar:
-            for data in response.iter_content(chunk_size=1024):
-                f.write(data)
-                pbar.update(len(data))
-    
-    print(f"✅ Model downloaded successfully!")
-else:
-    print(f"✅ Model found locally at {MODEL_PATH}")
-
-
-
-
-
-
-#----------------------------------------------------------------------------------------------------------------------------
 app = Flask(__name__)
+run_with_ngrok(app)  # عشان يشتغل على ngrok
 
 # ========== CONFIGURATION ==========
 UPLOAD_FOLDER = 'uploads'
@@ -136,10 +105,7 @@ def prepare_image(image_bytes, original_filename):
     # Add batch dimension
     image_tensor = image_tensor.unsqueeze(0).to(DEVICE)
     
-    # Clean up temp file
-    os.remove(temp_path)
-    
-    return image_tensor
+    return image_tensor, temp_path
 
 def mask_to_image(mask_tensor):
     """Convert mask tensor to PIL Image for response"""
@@ -154,7 +120,45 @@ def encode_image_to_base64(pil_image):
     buffer.seek(0)
     return base64.b64encode(buffer.read()).decode('utf-8')
 
+def get_image_base64(image_path):
+    """Read image and return base64 string"""
+    with open(image_path, 'rb') as f:
+        return base64.b64encode(f.read()).decode('utf-8')
+
+def calculate_metrics(pred_mask, true_mask):
+    """Calculate IoU, precision, recall, F1 between prediction and ground truth"""
+    
+    # Flatten
+    pred_flat = pred_mask.flatten()
+    true_flat = true_mask.flatten()
+    
+    # Calculate
+    intersection = np.logical_and(pred_flat, true_flat).sum()
+    union = np.logical_or(pred_flat, true_flat).sum()
+    
+    iou = intersection / union if union > 0 else 0
+    
+    tp = intersection
+    fp = (pred_flat & ~true_flat).sum()
+    fn = (~pred_flat & true_flat).sum()
+    
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+    
+    return {
+        'iou': round(iou, 4),
+        'precision': round(precision, 4),
+        'recall': round(recall, 4),
+        'f1': round(f1, 4)
+    }
+
 # ========== ROUTES ==========
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 @app.route('/', methods=['GET'])
 def index():
     return '''
@@ -209,6 +213,7 @@ def index():
             cursor: pointer;
             transition: all 0.3s;
             background: #f8f9ff;
+            margin-bottom: 20px;
         }
         
         .upload-area:hover {
@@ -225,6 +230,22 @@ def index():
         .upload-area p {
             margin: 5px 0;
             color: #444;
+        }
+        
+        .upload-area-small {
+            border: 2px dashed #667eea;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+            margin: 20px 0;
+        }
+        
+        .upload-area-small:hover {
+            background: #e8eaff;
+            border-color: #764ba2;
         }
         
         .file-input {
@@ -268,6 +289,7 @@ def index():
             gap: 20px;
             flex-wrap: wrap;
             justify-content: center;
+            margin-bottom: 30px;
         }
         
         .image-card {
@@ -370,6 +392,47 @@ def index():
             opacity: 0.9;
         }
         
+        .metrics-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 30px 0;
+            box-shadow: 0 10px 30px rgba(240, 147, 251, 0.3);
+            color: white;
+        }
+        
+        .metrics-card h3 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+        
+        .metric-label {
+            display: block;
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            display: block;
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
         .error-message {
             background: #ffebee;
             color: #c62828;
@@ -433,13 +496,22 @@ def index():
         <h1>🌊 Satellite Water Detection</h1>
         <p class="subtitle">AI-powered water segmentation using U-Net + EfficientNet (9 spectral bands)</p>
         
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <!-- Upload Image Area -->
+        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
             <i>📤</i>
-            <p>Click to upload or drag & drop</p>
+            <p>Click to upload satellite image</p>
             <p style="font-size: 12px; color: #999;">Supports: .tif, .tiff, .png, .jpg, .jpeg</p>
-            <input type="file" id="fileInput" class="file-input" accept=".tif,.tiff,.png,.jpg,.jpeg">
+            <input type="file" id="imageInput" class="file-input" accept=".tif,.tiff,.png,.jpg,.jpeg">
         </div>
-        <div id="fileName" class="file-name"></div>
+        <div id="imageName" class="file-name"></div>
+        
+        <!-- Upload Ground Truth Mask Area (Optional) -->
+        <div class="upload-area-small" onclick="document.getElementById('maskInput').click()">
+            <p>🔬 Upload Ground Truth Mask (optional - to measure model accuracy)</p>
+            <p style="font-size: 12px; color: #999;">Upload the real water mask to see IoU, Precision, Recall, F1</p>
+            <input type="file" id="maskInput" class="file-input" accept=".png,.tif">
+        </div>
+        <div id="maskName" class="file-name"></div>
         
         <div id="loading" class="loading">
             <div class="spinner"></div>
@@ -461,15 +533,17 @@ def index():
                 </div>
             </div>
             
+            <!-- Main classification result with confidence bar -->
             <div class="classification-result">
                 <span class="result-badge">🌊 Water Detection Result</span>
                 <div class="result-text" id="classificationText">Analyzing...</div>
                 <div class="confidence-bar">
                     <div class="confidence-fill" id="confidenceFill" style="width: 0%">0%</div>
                 </div>
-                <p style="color: white; margin-top: 10px;" id="confidenceDetail">Confidence score based on pixel analysis</p>
+                <p style="color: white; margin-top: 10px;" id="confidenceDetail">Average model confidence across all pixels</p>
             </div>
             
+            <!-- Basic Statistics -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="label">Water Coverage</div>
@@ -485,6 +559,29 @@ def index():
                 </div>
             </div>
             
+            <!-- Metrics Card (shows when ground truth is uploaded) -->
+            <div id="metricsCard" class="metrics-card" style="display: none;">
+                <h3>📊 Model Performance on this Image</h3>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <span class="metric-label">IoU</span>
+                        <span class="metric-value" id="iouValue">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Precision</span>
+                        <span class="metric-value" id="precisionValue">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Recall</span>
+                        <span class="metric-value" id="recallValue">0.00</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">F1-Score</span>
+                        <span class="metric-value" id="f1Value">0.00</span>
+                    </div>
+                </div>
+            </div>
+            
             <div style="text-align: center;">
                 <button class="btn" onclick="resetUpload()">🔄 Analyze New Image</button>
             </div>
@@ -497,8 +594,10 @@ def index():
     </div>
     
     <script>
-        const fileInput = document.getElementById('fileInput');
-        const fileName = document.getElementById('fileName');
+        const imageInput = document.getElementById('imageInput');
+        const maskInput = document.getElementById('maskInput');
+        const imageName = document.getElementById('imageName');
+        const maskName = document.getElementById('maskName');
         const loading = document.getElementById('loading');
         const results = document.getElementById('results');
         const errorMessage = document.getElementById('errorMessage');
@@ -511,29 +610,58 @@ def index():
         const classificationText = document.getElementById('classificationText');
         const confidenceFill = document.getElementById('confidenceFill');
         const confidenceDetail = document.getElementById('confidenceDetail');
+        const metricsCard = document.getElementById('metricsCard');
+        const iouValue = document.getElementById('iouValue');
+        const precisionValue = document.getElementById('precisionValue');
+        const recallValue = document.getElementById('recallValue');
+        const f1Value = document.getElementById('f1Value');
         
-        fileInput.addEventListener('change', function(e) {
+        let groundTruthFile = null;
+        
+        imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
             
-            fileName.textContent = `📁 ${file.name}`;
+            imageName.textContent = `📁 Image: ${file.name}`;
             
+            // Show original image
             const reader = new FileReader();
             reader.onload = function(e) {
                 originalImage.src = e.target.result;
             };
             reader.readAsDataURL(file);
             
-            uploadAndAnalyze(file);
+            // If we have both image and mask, analyze
+            if (groundTruthFile) {
+                uploadAndAnalyze(file, groundTruthFile);
+            }
         });
         
-        async function uploadAndAnalyze(file) {
+        maskInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            groundTruthFile = file;
+            maskName.textContent = `📋 Mask: ${file.name}`;
+            
+            // If we have both image and mask, analyze
+            const imageFile = imageInput.files[0];
+            if (imageFile) {
+                uploadAndAnalyze(imageFile, file);
+            }
+        });
+        
+        async function uploadAndAnalyze(imageFile, maskFile = null) {
             results.style.display = 'none';
+            metricsCard.style.display = 'none';
             errorMessage.style.display = 'none';
             loading.style.display = 'block';
             
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('image', imageFile);
+            if (maskFile) {
+                formData.append('mask', maskFile);
+            }
             
             try {
                 const response = await fetch('/predict', {
@@ -544,21 +672,30 @@ def index():
                 const data = await response.json();
                 
                 if (data.success) {
+                    // Display mask
                     maskImage.src = data.mask_image;
                     
+                    // Update basic stats
                     waterPercentage.textContent = data.water_percentage + '%';
                     areaValue.textContent = data.area_km2 + ' km²';
                     pixelCount.textContent = data.water_pixels.toLocaleString();
                     pixelInfo.textContent = `Total pixels: ${data.total_pixels} | Water pixels: ${data.water_pixels}`;
                     
-                    const confidence = data.water_percentage;
+                    // Update confidence bar (average model confidence)
+                    const confidence = data.avg_confidence;
+                    confidenceFill.style.width = confidence + '%';
+                    confidenceFill.textContent = confidence.toFixed(1) + '%';
+                    confidenceDetail.textContent = `Average model confidence: ${confidence.toFixed(1)}%`;
+                    
+                    // Update classification text based on water coverage
+                    const coverage = data.water_percentage;
                     let resultText = '';
                     let resultColor = '';
                     
-                    if (confidence >= 70) {
+                    if (coverage >= 70) {
                         resultText = '🌊 High Water Concentration';
                         resultColor = '#43e97b';
-                    } else if (confidence >= 30) {
+                    } else if (coverage >= 30) {
                         resultText = '💧 Moderate Water Presence';
                         resultColor = '#f9d423';
                     } else {
@@ -567,11 +704,17 @@ def index():
                     }
                     
                     classificationText.textContent = resultText;
-                    confidenceFill.style.width = confidence + '%';
-                    confidenceFill.textContent = confidence.toFixed(1) + '%';
-                    
                     document.querySelector('.classification-result').style.background = 
                         `linear-gradient(135deg, ${resultColor} 0%, #667eea 100%)`;
+                    
+                    // If metrics are available (ground truth was uploaded)
+                    if (data.iou !== undefined) {
+                        metricsCard.style.display = 'block';
+                        iouValue.textContent = data.iou;
+                        precisionValue.textContent = data.precision;
+                        recallValue.textContent = data.recall;
+                        f1Value.textContent = data.f1;
+                    }
                     
                     results.style.display = 'block';
                 } else {
@@ -590,9 +733,13 @@ def index():
         }
         
         function resetUpload() {
-            fileInput.value = '';
-            fileName.textContent = '';
+            imageInput.value = '';
+            maskInput.value = '';
+            groundTruthFile = null;
+            imageName.textContent = '';
+            maskName.textContent = '';
             results.style.display = 'none';
+            metricsCard.style.display = 'none';
             errorMessage.style.display = 'none';
             originalImage.src = '';
             maskImage.src = '';
@@ -601,30 +748,32 @@ def index():
 </body>
 </html>
     '''
-#-------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
     """
     Predict endpoint - returns segmentation mask with confidence scores.
+    If ground truth mask is provided, also returns IoU, precision, recall, F1.
     """
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
+        # Check if image was uploaded
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image uploaded'}), 400
         
-        file = request.files['file']
+        image_file = request.files['image']
         
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
+        if image_file.filename == '':
+            return jsonify({'error': 'No image selected'}), 400
         
-        if not allowed_file(file.filename):
+        if not allowed_file(image_file.filename):
             return jsonify({'error': f'File type not allowed. Allowed: {ALLOWED_EXTENSIONS}'}), 400
         
-        # Read file bytes
-        image_bytes = file.read()
+        # Read image file bytes
+        image_bytes = image_file.read()
         
-        # Prepare image for model
-        input_tensor = prepare_image(image_bytes, file.filename)
+        # Prepare image for model and get temp path
+        input_tensor, temp_path = prepare_image(image_bytes, image_file.filename)
         
         # Run inference
         with torch.no_grad():
@@ -641,19 +790,52 @@ def predict():
         total_pixels = pred_mask.numel()
         water_percentage = (water_pixels / total_pixels) * 100
         
+        # Calculate average confidence across ALL pixels (fixed)
+        avg_confidence = pred_probs.mean().item() * 100
+        
         # Calculate approximate area (30m per pixel)
         pixel_area_km2 = (30 * 30) / 1_000_000  # 30m x 30m = 900m² = 0.0009 km²
         area_km2 = water_pixels * pixel_area_km2
         
+        # Get original image as base64 for display
+        original_base64 = get_image_base64(temp_path)
+        original_ext = image_file.filename.split('.')[-1]
+        
         response = {
             'success': True,
             'water_percentage': round(water_percentage, 2),
+            'avg_confidence': round(avg_confidence, 2),
             'area_km2': round(area_km2, 2),
             'water_pixels': int(water_pixels),
             'total_pixels': int(total_pixels),
             'mask_image': f"data:image/png;base64,{mask_base64}",
-            'filename': file.filename
+            'original_image': f"data:image/{original_ext};base64,{original_base64}",
+            'filename': image_file.filename
         }
+        
+        # Check if ground truth mask was uploaded
+        if 'mask' in request.files:
+            mask_file = request.files['mask']
+            if mask_file and mask_file.filename != '':
+                # Read ground truth mask
+                true_mask = Image.open(mask_file).convert('L')  # Convert to grayscale
+                true_mask = np.array(true_mask)
+                
+                # Convert to binary (0 or 1)
+                true_mask = (true_mask > 128).astype(np.float32)
+                
+                # Resize if needed to match prediction size
+                if true_mask.shape != (128, 128):
+                    true_mask_pil = Image.fromarray((true_mask * 255).astype(np.uint8))
+                    true_mask_pil = true_mask_pil.resize((128, 128), Image.NEAREST)
+                    true_mask = np.array(true_mask_pil) / 255
+                
+                # Get prediction as numpy
+                pred_np = pred_mask[0, 0].cpu().numpy()
+                
+                # Calculate metrics
+                metrics = calculate_metrics(pred_np, true_mask)
+                response.update(metrics)
         
         return jsonify(response)
     
@@ -663,5 +845,4 @@ def predict():
 
 # ========== RUN APP ==========
 if __name__ == '__main__':
-    run_with_ngrok(app)
     app.run()
