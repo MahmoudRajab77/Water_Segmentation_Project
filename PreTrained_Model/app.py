@@ -62,7 +62,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print("Loading model...")
 
-checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
+checkpoint = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
 
 model = PretrainedUNet(n_channels=9, n_classes=1).to(DEVICE)
 model.load_state_dict(checkpoint['model_state_dict'])
