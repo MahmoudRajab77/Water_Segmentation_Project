@@ -13,13 +13,47 @@ from flask import Flask, request, jsonify, render_template
 from PIL import Image
 import tifffile
 from werkzeug.utils import secure_filename
-
 # Add src to path
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from model import PretrainedUNet
+import requests
+from tqdm import tqdm
+import os
 
+
+
+
+
+
+# ========== GITHUB RELEASES SETUP ==========
+MODEL_PATH = 'best_model.pth'
+RELEASE_URL = 'https://github.com/MahmoudRajab77/Water_Segmentation_Project/releases/download/v1.0.0/best_model.pth'
+
+# Download model from GitHub Releases if not exists
+if not os.path.exists(MODEL_PATH):
+    print(f"📥 Downloading model from GitHub Releases...")
+    
+    response = requests.get(RELEASE_URL, stream=True)
+    total_size = int(response.headers.get('content-length', 0))
+    
+    with open(MODEL_PATH, 'wb') as f:
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc=MODEL_PATH) as pbar:
+            for data in response.iter_content(chunk_size=1024):
+                f.write(data)
+                pbar.update(len(data))
+    
+    print(f"✅ Model downloaded successfully!")
+else:
+    print(f"✅ Model found locally at {MODEL_PATH}")
+
+
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------------------
 app = Flask(__name__)
 
 # ========== CONFIGURATION ==========
