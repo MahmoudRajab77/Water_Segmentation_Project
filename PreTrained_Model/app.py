@@ -41,7 +41,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 MODEL_PATH = os.path.join(BASE_DIR, "best_model.pth")
 
-MODEL_URL = "https://github.com/MahmoudRajab77/Water_Segmentation_Project/releases/tag/v1.0.0"
+MODEL_URL = "https://github.com/MahmoudRajab77/Water_Segmentation_Project/releases/download/v1.0.0/best_model.pth"
 
 if not os.path.exists(MODEL_PATH):
     print("Downloading model...")
