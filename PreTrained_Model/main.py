@@ -1,18 +1,18 @@
-#!/usr/bin/env python3
-"""
-Main entry point for Pretrained U-Net (ResNet34) water segmentation.
-"""
+
+"""------------------------------------------------{Main entry point for Pretrained U-Net (ResNet34) water segmentation}----------------------------------------------------------------"""
 
 import os
 import sys
 import argparse
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from train import train_model, DiceBCELoss
+from train import train_model, DiceBCELoss, calculate_iou
 from data_load import WaterDataset
 
 
@@ -87,7 +87,7 @@ def main():
     # Load best model
     checkpoint = torch.load('best_model.pth', weights_only=False)
     model.load_state_dict(checkpoint['model_state_dict'])
-    print(f" Loaded best model from epoch {checkpoint['epoch']+1} with IoU: {checkpoint['val_iou']:.4f}")
+    print(f" Loaded best model from epoch {checkpoint['epoch']} with IoU: {checkpoint['train_iou']:.4f}")
     
     # Device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -117,9 +117,54 @@ def main():
     
     # Test the model
     print("\n Evaluating on test set...")
-    test_loss, test_iou, test_precision, test_recall, test_f1 = validate(
-        model, test_loader, criterion, device
-    )
+    
+    model.eval()
+    test_loss = 0
+    test_iou = 0
+    all_preds = []
+    all_targets = []
+    num_batches = 0
+    
+    with torch.no_grad():
+        for images, masks in test_loader:
+            images = images.to(device)
+            masks = masks.to(device)
+            
+            # ===== BATCH NORMALIZATION for testing same as (training) =====
+            batch_mean = images.mean(dim=(0, 2, 3), keepdim=True)
+            batch_std = images.std(dim=(0, 2, 3), keepdim=True) + 1e-8
+            images = (images - batch_mean) / batch_std
+            
+            
+            if len(masks.shape) == 3:
+                masks = masks.unsqueeze(1)
+            masks = masks.float()
+            
+            outputs = model(images)
+            loss = criterion(outputs, masks)
+            
+            pred_probs = torch.sigmoid(outputs)
+            batch_iou = calculate_iou(pred_probs, masks)
+            
+            pred_binary = (pred_probs > 0.5).float()
+            all_preds.append(pred_binary.cpu().numpy())
+            all_targets.append(masks.cpu().numpy())
+            
+            test_loss += loss.item()
+            test_iou += batch_iou
+            num_batches += 1
+    
+    # Calculate averages
+    test_loss /= num_batches
+    test_iou /= num_batches
+    
+    # Calculate precision, recall, f1
+    all_preds = np.concatenate(all_preds).flatten()
+    all_targets = np.concatenate(all_targets).flatten()
+    
+    test_precision = precision_score(all_targets, all_preds, zero_division=0)
+    test_recall = recall_score(all_targets, all_preds, zero_division=0)
+    test_f1 = f1_score(all_targets, all_preds, zero_division=0)
     
     # Print final results
     print("\n" + "="*60)
@@ -144,14 +189,10 @@ def main():
     
     print("\n Test results saved to 'test_results.txt'")
 
-
-
-
-#--------------------------------------------------------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
-
 
 
 
