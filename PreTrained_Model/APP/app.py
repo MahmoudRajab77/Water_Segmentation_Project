@@ -138,14 +138,19 @@ def predict():
         import base64
         import io
         
+        # ========== Converting original image to base64 ==========
         def get_image_base64(image_path):
-            with open(image_path, 'rb') as f:
-                return base64.b64encode(f.read()).decode()
-        
+            img = Image.open(image_path)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG')
+            return base64.b64encode(buffer.getvalue()).decode()
+            
         original_base64 = get_image_base64(temp_path)
-        original_ext = image_file.filename.split('.')[-1]
+        original_ext = "png"  
         # ===========================================================
-        
+                
         with torch.no_grad():
             output = model(input_tensor)
             probs = torch.sigmoid(output)
