@@ -17,7 +17,9 @@ from PIL import Image
 import tifffile
 from werkzeug.utils import secure_filename
 
-from flask_ngrok import run_with_ngrok
+from pyngrok import ngrok
+import threading
+import time
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
@@ -316,6 +318,16 @@ def predict():
 
         return jsonify({"error": str(e)})
 
+
+
+# Running Ngrok in separated Thread 
+def start_ngrok():
+    time.sleep(2)
+    public_url = ngrok.connect(5000).public_url
+    print(f"\nPublic URL: {public_url}")
+    print("Open this URL in your browser!")
+
+threading.Thread(target=start_ngrok, daemon=True).start()
 
 # =========================
 # Run server
