@@ -62,7 +62,7 @@ def calculate_iou(pred, target, threshold=0.5):
 
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
-    """Train for one epoch"""
+    """Train for one epoch - بدون Batch Normalization"""
     model.train()
     total_loss = 0
     total_iou = 0
@@ -79,7 +79,7 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
         masks = masks.float()
         
         optimizer.zero_grad()
-        outputs = model(images)
+        outputs = model(images)  # ImageNet normalization 
         loss = criterion(outputs, masks)
         loss.backward()
         optimizer.step()
@@ -103,78 +103,27 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
     return avg_loss, avg_iou
 
 
-def validate(model, dataloader, criterion, device):
-    """Validate the model"""
-    model.eval()
-    total_loss = 0
-    total_iou = 0
-    all_preds = []
-    all_targets = []
-    num_batches = 0
-    
-    with torch.no_grad():
-        progress_bar = tqdm(dataloader, desc='Validating', leave=False, ncols=80)
-        
-        for images, masks in progress_bar:
-            images = images.to(device)
-            masks = masks.to(device)
-            
-            if len(masks.shape) == 3:
-                masks = masks.unsqueeze(1)
-            masks = masks.float()
-            
-            outputs = model(images)
-            loss = criterion(outputs, masks)
-            
-            pred_probs = torch.sigmoid(outputs)
-            batch_iou = calculate_iou(pred_probs, masks)
-            
-            pred_binary = (pred_probs > 0.5).float()
-            all_preds.append(pred_binary.cpu().numpy())
-            all_targets.append(masks.cpu().numpy())
-            
-            total_loss += loss.item()
-            total_iou += batch_iou
-            num_batches += 1
-            
-            progress_bar.set_postfix({
-                'loss': f'{loss.item():.4f}',
-                'iou': f'{batch_iou:.4f}'
-            })
-    
-    avg_loss = total_loss / num_batches
-    avg_iou = total_iou / num_batches
-    
-    all_preds = np.concatenate(all_preds).flatten()
-    all_targets = np.concatenate(all_targets).flatten()
-    
-    precision = precision_score(all_targets, all_preds, zero_division=0)
-    recall = recall_score(all_targets, all_preds, zero_division=0)
-    f1 = f1_score(all_targets, all_preds, zero_division=0)
-    
-    return avg_loss, avg_iou, precision, recall, f1
-
-
-def plot_training_curves(train_losses, val_losses, val_ious):
-    """Plot training curves"""
+def plot_training_curves(train_losses, train_ious):
+    """Plot training curves - without validation"""
     epochs = range(1, len(train_losses) + 1)
     
     plt.figure(figsize=(12, 4))
     
+    # Plot loss
     plt.subplot(1, 2, 1)
     plt.plot(epochs, train_losses, 'b-', label='Training Loss')
-    plt.plot(epochs, val_losses, 'r-', label='Validation Loss')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
-    plt.title('Training and Validation Loss')
+    plt.title('Training Loss')
     plt.legend()
     plt.grid(True)
     
+    # Plot IoU
     plt.subplot(1, 2, 2)
-    plt.plot(epochs, val_ious, 'g-', label='Validation IoU')
+    plt.plot(epochs, train_ious, 'g-', label='Training IoU')
     plt.xlabel('Epochs')
     plt.ylabel('IoU')
-    plt.title('Validation IoU')
+    plt.title('Training IoU')
     plt.legend()
     plt.grid(True)
     
@@ -184,13 +133,13 @@ def plot_training_curves(train_losses, val_losses, val_ious):
 
 
 def train_model(config):
-    """Main training function"""
+    """Main training function - without validation"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
-    # Create datasets
+    # Create dataset
     print("\n" + "="*50)
-    print("LOADING DATASETS")
+    print("LOADING DATASET")
     print("="*50)
     
     n_bands = len(config.get('selected_bands', list(range(12))))
@@ -202,13 +151,6 @@ def train_model(config):
         selected_bands=config.get('selected_bands', None)
     )
     
-    val_dataset = WaterDataset(
-        images_dir=config['images_dir'],
-        masks_dir=config['masks_dir'],
-        split='val',
-        selected_bands=config.get('selected_bands', None)
-    )
-    
     train_loader = DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
@@ -217,16 +159,7 @@ def train_model(config):
         pin_memory=True if device.type == 'cuda' else False
     )
     
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=config['batch_size'],
-        shuffle=False,
-        num_workers=2,
-        pin_memory=True if device.type == 'cuda' else False
-    )
-    
     print(f"\nTrain batches: {len(train_loader)}")
-    print(f"Val batches: {len(val_loader)}")
     
     # Create model
     print("\n" + "="*50)
@@ -280,10 +213,9 @@ def train_model(config):
     print("STARTING TRAINING")
     print("="*50)
     
-    best_val_iou = 0.0
+    best_train_iou = 0.0
     train_losses = []
-    val_losses = []
-    val_ious = []
+    train_ious = []
     
     for epoch in range(config['num_epochs']):
         print(f"\n{'='*60}")
@@ -294,42 +226,44 @@ def train_model(config):
             model, train_loader, criterion, optimizer, device
         )
         
-        val_loss, val_iou, precision, recall, f1 = validate(
-            model, val_loader, criterion, device
-        )
-        
-        if config.get('scheduler', 'OneCycle') == 'CosineAnnealingWarmRestarts':
-            scheduler.step()
-        else:
-            scheduler.step()
+        scheduler.step()
         
         train_losses.append(train_loss)
-        val_losses.append(val_loss)
-        val_ious.append(val_iou)
+        train_ious.append(train_iou)
         
         print(f"\n RESULTS")
         print(f"{'─'*40}")
         print(f"Train   | Loss: {train_loss:.4f} | IoU: {train_iou:.4f}")
-        print(f"Val     | Loss: {val_loss:.4f} | IoU: {val_iou:.4f}")
         print(f"{'─'*40}")
-        print(f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}")
         
-        if val_iou > best_val_iou:
-            best_val_iou = val_iou
+        # Save best model based on training IoU
+        if train_iou > best_train_iou:
+            best_train_iou = train_iou
             torch.save({
-                'epoch': epoch,
+                'epoch': epoch + 1,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'val_iou': val_iou,
+                'train_iou': train_iou,
                 'config': config
             }, 'best_model.pth')
-            print(f" Best model saved! (IoU: {val_iou:.4f})")
+            print(f"  New best model saved! (IoU: {train_iou:.4f})")
     
     print("\n" + "="*50)
     print("TRAINING COMPLETE!")
     print("="*50)
-    print(f"Best validation IoU: {best_val_iou:.4f}")
+    print(f"Best training IoU achieved: {best_train_iou:.4f}")
     
-    plot_training_curves(train_losses, val_losses, val_ious)
+    """
+    # Save final model
+    torch.save({
+        'epoch': config['num_epochs'],
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'final_train_iou': train_iou,
+        'config': config
+    }, 'final_model.pth')
+    print(f" Final model saved!")
+    """
+    plot_training_curves(train_losses, train_ious)
     
     return model
