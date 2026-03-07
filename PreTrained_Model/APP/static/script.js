@@ -89,6 +89,7 @@ async function uploadAndAnalyze(imageFile, maskFile = null) {
         if (data.success) {
             // Display mask
             maskImage.src = data.mask_image;
+            originalImage.src = data.original_image;
             
             // Update basic stats
             waterPercentage.textContent = data.water_percentage + '%';
