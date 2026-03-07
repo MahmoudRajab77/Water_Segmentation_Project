@@ -177,27 +177,32 @@ def predict():
         # Ground truth metrics
         if "mask" in request.files and request.files["mask"].filename != "":
             mask_file = request.files["mask"]
-            
+                
             gt = Image.open(mask_file)
-            
+                
             if gt.mode != 'L':
                 gt = gt.convert('L')
-            
+                
             gt = gt.resize((128, 128), Image.NEAREST)
-            
-            if gt.max() > 1:
-                gt = (gt > 128).astype(np.uint8)
-            
+                
+            # Convert to numpy array
+            gt_np = np.array(gt)
+                
+            # Verify Values
+            if gt_np.max() > 1:
+                gt_np = (gt_np > 128).astype(np.uint8)
+            else:
+                gt_np = gt_np.astype(np.uint8)
+                
             pred_np = pred_mask[0, 0].cpu().numpy()
-            
-            # printing to make sure of values 
+                
             print("Pred mask unique values:", np.unique(pred_np))
-            print("GT mask unique values:", np.unique(gt))
-            
-            metrics = calculate_metrics(pred_np, gt)
+            print("GT mask unique values:", np.unique(gt_np))
+                
+            metrics = calculate_metrics(pred_np, gt_np)
             print("IoU:", metrics['iou'], "Precision:", metrics['precision'], 
-                  "Recall:", metrics['recall'], "F1:", metrics['f1'])
-            
+                      "Recall:", metrics['recall'], "F1:", metrics['f1'])
+                
             response.update(metrics)
         
         return jsonify(response)
