@@ -138,17 +138,40 @@ def predict():
         import base64
         import io
         
-        # ========== Converting original image to base64 ==========
+       
         def get_image_base64(image_path):
-            img = Image.open(image_path)
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
+            """
+                Convert TIFF image to PNG base64 for browser display.
+                Uses tifffile to read multi-band images and extracts first 3 bands for RGB preview.
+             """
+            # Read the multi-band TIFF using tifffile
+            img_array = tifffile.imread(image_path)
+                
+            # Take first 3 bands for RGB display (if available)
+            if img_array.ndim == 3 and img_array.shape[2] >= 3:
+                # Extract first 3 bands (RGB)
+                img_rgb = img_array[:, :, :3]
+                    
+                # Normalize to 0-255 range for display
+                img_rgb = (img_rgb - img_rgb.min()) / (img_rgb.max() - img_rgb.min() + 1e-8)
+                img_rgb = (img_rgb * 255).astype(np.uint8)
+                    
+                # Convert to PIL Image
+                img = Image.fromarray(img_rgb)
+            else:
+                # Fallback for grayscale or unexpected formats
+                img = Image.fromarray(img_array.astype(np.uint8))
+                
+            # Save as PNG to bytes buffer
             buffer = io.BytesIO()
             img.save(buffer, format='PNG')
+                
+            # Return base64 encoded string
             return base64.b64encode(buffer.getvalue()).decode()
-            
+
+        # Convert original image to base64 for display
         original_base64 = get_image_base64(temp_path)
-        original_ext = "png"  
+        original_ext = image_file.filename.split('.')[-1]
         # ===========================================================
                 
         with torch.no_grad():
