@@ -86,13 +86,13 @@ Water_Segmentation_Project/
 
 │
 
-├── PreTrained_Model/                           # U-Net with ResNet34 encoder
+├── PreTrained_Model/                           # U-Net with EfficientNet-b4 encoder
 
 │   ├── src/
 
 │   │   ├── __init__.py
 
-│   │   ├── data_load.py                         # (shared with FromScratch)
+│   │   ├── data_load.py                         
 
 │   │   ├── model.py                              # Pretrained U-Net
 
@@ -101,6 +101,8 @@ Water_Segmentation_Project/
 │   │   └── visualize.py                            # Band visualization
 
 │   ├── main.py
+
+│   ├── app.py
 
 │   └── requirements.txt
 
