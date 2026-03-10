@@ -86,7 +86,7 @@ Water_Segmentation_Project/
 
 │
  
-├── PreTrained_Model/                           # U-Net with EfficientNet-b4 encoder
+├── PreTrained_Model/                           # U-Net with ResNet34 encoder
 
 │   ├── src/
 
